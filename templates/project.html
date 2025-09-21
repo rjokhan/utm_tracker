@@ -1,0 +1,175 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project — Qizil pomada</title>
+  <link rel="stylesheet" href="{% static 'css/project.css' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Sidebar (fixed) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada" />
+    </div>
+
+    <div class="side-actions">
+      <button class="action" id="btnCreateLink">
+        <span>Create<br>New Link</span>
+        <i>+</i>
+      </button>
+      <button class="action" id="btnAddMember">
+        <span>Add Member</span>
+        <i>+</i>
+      </button>
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item" href="{% url 'index' %}">
+        <img src="{% static 'img/ic-dashboard.png' %}" alt="">
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" href="{% url 'projects' %}">
+        <img src="{% static 'img/ic-projects.png' %}" alt="">
+        <span>All projects</span>
+      </a>
+      <a class="nav-item" href="{% url 'members' %}">
+        <img src="{% static 'img/ic-team.png' %}" alt="">
+        <span>Team members</span>
+      </a>
+    </nav>
+
+    <div class="powered">
+      <div class="powered-text">Designed &amp; powered</div>
+      <img class="powered-logo" src="{% static 'img/joan-logo.png' %}" alt="JOAN">
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <main class="content">
+    <header class="header">
+      <div class="project-badge">
+        <div class="project-name" id="projectName"></div>
+        <div class="project-dates" id="projectDates"></div>
+      </div>
+    </header>
+
+    <!-- Overview -->
+    <section class="section">
+      <h3 class="section-title">Overview</h3>
+
+      <div class="kpi-row">
+        <div class="kpi kpi-pink">
+          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+          <div class="kpi-main">
+            <div class="kpi-num" id="kpiMembers"></div>
+            <div class="kpi-sub">total members in project</div>
+          </div>
+        </div>
+
+        <div class="kpi kpi-blue">
+          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+          <div class="kpi-main">
+            <div class="kpi-num" id="kpiLinks"></div>
+            <div class="kpi-sub">total number of links</div>
+          </div>
+        </div>
+
+        <div class="kpi kpi-green kpi-wide">
+          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+          <div class="kpi-main">
+            <div class="kpi-num big" id="kpiClicks"></div>
+            <div class="kpi-sub">total number of clicks</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Leads -->
+    <section class="section">
+      <h3 class="section-title">Leads</h3>
+
+      <!-- Podium (top 3, рендерит JS) -->
+      <div class="podium" id="podium"></div>
+
+      <!-- Others (рендерит JS) -->
+      <div class="others" id="others"></div>
+    </section>
+  </main>
+
+  <!-- Overlays / Modals -->
+  <div id="overlay" class="overlay"></div>
+
+  <!-- Create Link -->
+  <div id="modalLink" class="modal modal-pink">
+    <h3 class="modal-title">ENTER NAME OF LINK</h3>
+    <input id="linkName" class="field" placeholder="Link name">
+
+    <h3 class="modal-title small">ENTER LINK</h3>
+    <input id="linkUrl" class="field" placeholder="https://...">
+
+    <h3 class="modal-title small">CHOOSE LINK OWNER</h3>
+    <div class="select">
+      <input id="linkOwner" class="field select-input" readonly placeholder="Choose member">
+      <img class="caret" src="{% static 'img/ic-caret.png' %}" alt="">
+      <div class="select-menu" id="ownerMenu"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="createLinkBtn">CREATE</button>
+      <button class="btn ghost" data-close>Cancel</button>
+    </div>
+  </div>
+
+  <!-- Add Member to project -->
+  <div id="modalAddMember" class="modal modal-pink">
+    <h3 class="modal-title">CHOOSE MEMBER TO ADD</h3>
+    <div class="select">
+      <input id="addMemberInput" class="field select-input" readonly placeholder="Select member">
+      <img class="caret" src="{% static 'img/ic-caret.png' %}" alt="">
+      <div class="select-menu" id="addMemberMenu"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="addMemberBtn">CREATE</button>
+      <button class="btn ghost" data-close>Cancel</button>
+    </div>
+  </div>
+
+  <!-- Links of member -->
+  <div id="modalLinksList" class="modal modal-white">
+    <h3 class="modal-title dark" id="linksListTitle">Links</h3>
+    <div id="linksListBody" class="links-list"></div>
+    <div class="modal-actions">
+      <button class="btn ghost dark" data-close>Close</button>
+    </div>
+  </div>
+
+  <!-- Corner alerts -->
+  <div id="corner" class="corner"></div>
+
+
+
+  <!-- Login Overlay (общий попап для всех страниц) -->
+<div id="loginOverlay" class="overlay"></div>
+<div id="loginModal" class="modal modal-white" style="max-width:420px">
+  <h3 class="modal-title dark">ENTER PASSWORD</h3>
+  <input id="loginPassword" class="field" type="password" placeholder="Password">
+  <div class="modal-actions">
+    <button id="loginSubmit" class="btn">ENTER</button>
+  </div>
+</div>
+
+
+
+
+
+  <!-- JS: порядок важен — сначала общий API, потом логика страницы -->
+  <script src="{% static 'js/api.js' %}"></script>
+    <script src="{% static 'js/auth.js' %}"></script>
+  <script src="{% static 'js/project.js' %}"></script>
+</body>
+</html>

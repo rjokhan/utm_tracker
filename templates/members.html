@@ -1,0 +1,100 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Team members — Qizil pomada</title>
+
+  <link rel="stylesheet" href="{% static 'css/members.css' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada" />
+    </div>
+
+    <div class="side-actions">
+      <button class="action" id="btnAddMember">
+        <span>Add New<br>Team Member</span>
+        <i>+</i>
+      </button>
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item" href="{% url 'index' %}">
+        <img src="{% static 'img/ic-dashboard.png' %}" alt="">
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" href="{% url 'projects' %}">
+        <img src="{% static 'img/ic-projects.png' %}" alt="">
+        <span>All projects</span>
+      </a>
+      <a class="nav-item active" href="{% url 'members' %}">
+        <img src="{% static 'img/ic-team.png' %}" alt="">
+        <span>Team members</span>
+      </a>
+    </nav>
+
+    <div class="powered">
+      <div class="powered-text">Designed &amp; powered</div>
+      <img class="powered-logo" src="{% static 'img/joan-logo.png' %}" alt="JOAN">
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <main class="content">
+    <header class="head">
+      <h1 class="title">Team members</h1>
+      <div class="status" id="roleBadge"><!-- JS вставит статус Creator/Viewer --></div>
+    </header>
+
+    <section class="section">
+      <h3 class="section-title">All members</h3>
+
+      <div id="list" class="list"><!-- JS заполнит список участников --></div>
+    </section>
+  </main>
+
+  <!-- Overlay & modal -->
+  <div id="overlay" class="overlay"></div>
+
+  <div id="modalAdd" class="modal modal-pink">
+    <h3 class="modal-title">ENTER MEMBER NAME</h3>
+    <input id="memberName" class="field" placeholder="Full name">
+    <div class="modal-actions">
+      <button id="createMember" class="btn">CREATE</button>
+      <button class="btn ghost" data-close>Cancel</button>
+    </div>
+  </div>
+
+  <!-- Corner alerts -->
+  <div id="corner" class="corner"></div>
+
+
+
+
+  <!-- Login Overlay (общий попап для всех страниц) -->
+<div id="loginOverlay" class="overlay"></div>
+<div id="loginModal" class="modal modal-white" style="max-width:420px">
+  <h3 class="modal-title dark">ENTER PASSWORD</h3>
+  <input id="loginPassword" class="field" type="password" placeholder="Password">
+  <div class="modal-actions">
+    <button id="loginSubmit" class="btn">ENTER</button>
+  </div>
+</div>
+
+
+
+
+
+  <!-- JS: сначала общий API, затем страничный скрипт -->
+  <script src="{% static 'js/api.js' %}"></script>
+    <script src="{% static 'js/auth.js' %}"></script>
+  <script src="{% static 'js/members.js' %}"></script>
+</body>
+</html>

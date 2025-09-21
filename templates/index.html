@@ -1,0 +1,128 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — Qizil pomada</title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{% static 'css/index.css' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Sidebar (white, fixed) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada">
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item active" href="{% url 'index' %}">
+        <img src="{% static 'img/ic-dashboard.png' %}" alt="">
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" href="{% url 'projects' %}">
+        <img src="{% static 'img/ic-projects.png' %}" alt="">
+        <span>All projects</span>
+      </a>
+      <a class="nav-item" href="{% url 'members' %}">
+        <img src="{% static 'img/ic-team.png' %}" alt="">
+        <span>Team members</span>
+      </a>
+    </nav>
+
+    <div class="powered">
+      <div class="powered-text">Designed &amp; powered by</div>
+      <img class="powered-logo" src="{% static 'img/joan-logo.png' %}" alt="JOAN">
+    </div>
+  </aside>
+
+  <!-- Content (scrolls) -->
+  <main class="content">
+    <header class="header">
+      <div>
+        <h1 class="title">Dashboard</h1>
+        <div class="status"><!-- сюда JS вставит роль --></div>
+      </div>
+    </header>
+
+    <!-- Overview -->
+    <section class="section">
+      <h3 class="section-title">Overview</h3>
+
+      <div class="kpi-row">
+        <div class="kpi kpi-pink">
+          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+          <div class="kpi-main">
+            <div class="kpi-num" id="kpi-projects"></div>
+            <div class="kpi-sub">total number of projects</div>
+          </div>
+        </div>
+
+        <div class="kpi kpi-blue">
+          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+          <div class="kpi-main">
+            <div class="kpi-num" id="kpi-links"></div>
+            <div class="kpi-sub">total number of links</div>
+          </div>
+        </div>
+
+        <div class="kpi kpi-green kpi-wide">
+          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+          <div class="kpi-main">
+            <div class="kpi-num big" id="kpi-clicks"></div>
+            <div class="kpi-sub">total number of clicks</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Leads -->
+    <section class="section">
+      <h3 class="section-title">Leads</h3>
+
+      <!-- Podium (динамика из JS) -->
+      <div class="podium" id="podium"></div>
+
+      <!-- Others (можно из JS или Django-цикла) -->
+      <div class="others" id="others">
+        {% for member in others %}
+          <div class="other {% if forloop.last %}last{% endif %}">
+            <div class="col name">
+              <span class="rank">{{ forloop.counter|add:3 }} –</span>
+              <span class="name">{{ member.name }}</span>
+            </div>
+            <div class="col links">{{ member.links }} links</div>
+            <div class="col clicks">{{ member.clicks }} clicks</div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+
+
+
+
+  <!-- Login Overlay (общий попап для всех страниц) -->
+<div id="loginOverlay" class="overlay"></div>
+<div id="loginModal" class="modal modal-white" style="max-width:420px">
+  <h3 class="modal-title dark">ENTER PASSWORD</h3>
+  <input id="loginPassword" class="field" type="password" placeholder="Password">
+  <div class="modal-actions">
+    <button id="loginSubmit" class="btn">ENTER</button>
+  </div>
+</div>
+
+
+
+
+
+  <!-- JS -->
+  <script src="{% static 'js/api.js' %}"></script>
+  <script src="{% static 'js/auth.js' %}"></script>
+  <script src="{% static 'js/index.js' %}"></script>
+</body>
+</html>

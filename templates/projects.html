@@ -1,0 +1,117 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>All projects — Qizil pomada</title>
+  <link rel="stylesheet" href="{% static 'css/projects.css' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Sidebar (fixed) -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada" />
+    </div>
+
+    <div class="side-actions">
+      <button class="action" id="btnCreateProject" data-open-create-project>
+        <span>Create<br>New Project</span>
+        <i>+</i>
+      </button>
+    </div>
+
+    <nav class="nav">
+      <a class="nav-item" href="{% url 'index' %}">
+        <img src="{% static 'img/ic-dashboard.png' %}" alt="">
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item active" href="{% url 'projects' %}">
+        <img src="{% static 'img/ic-projects.png' %}" alt="">
+        <span>All projects</span>
+      </a>
+      <a class="nav-item" href="{% url 'members' %}">
+        <img src="{% static 'img/ic-team.png' %}" alt="">
+        <span>Team members</span>
+      </a>
+    </nav>
+
+    <div class="powered">
+      <div class="powered-text">Designed &amp; powered by</div>
+      <img class="powered-logo" src="{% static 'img/joan-logo.png' %}" alt="JOAN">
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <main class="content">
+    <header class="header">
+      <div>
+        <h1 class="title">All projects</h1>
+        <div class="status">
+          Status | <b id="roleLabel"></b>
+          <span class="muted" id="roleHint"></span>
+        </div>
+      </div>
+    </header>
+
+    <section class="projects" id="projects-list">
+      <!-- JS заполнит карточки проектов -->
+    </section>
+  </main>
+
+  <!-- Overlay + Modal -->
+  <div id="overlay" class="overlay"></div>
+
+  <div id="create-project-modal" class="modal">
+    <h3 class="modal-title">ENTER NAME OF PROJECT</h3>
+    <form id="create-project-form">
+      <input name="name" class="field" placeholder="Project name" autocomplete="off" required>
+
+      <h3 class="modal-title small">ENTER ACTIVE DATES</h3>
+      <div class="grid-2">
+        <div>
+          <div class="hint">from</div>
+          <input name="from" class="field" type="date">
+        </div>
+        <div>
+          <div class="hint">to</div>
+          <input name="to" class="field" type="date">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" type="submit">CREATE</button>
+        <button class="btn ghost" type="button" data-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Corner alerts -->
+  <div id="corner" class="corner"></div>
+
+
+
+  <!-- Login Overlay (общий попап для всех страниц) -->
+<div id="loginOverlay" class="overlay"></div>
+<div id="loginModal" class="modal modal-white" style="max-width:420px">
+  <h3 class="modal-title dark">ENTER PASSWORD</h3>
+  <input id="loginPassword" class="field" type="password" placeholder="Password">
+  <div class="modal-actions">
+    <button id="loginSubmit" class="btn">ENTER</button>
+  </div>
+</div>
+
+
+
+
+
+
+  <!-- JS: порядок важен — сначала общий API, потом логика страницы -->
+  <script src="{% static 'js/api.js' %}"></script>
+    <script src="{% static 'js/auth.js' %}"></script>
+  <script src="{% static 'js/projects.js' %}"></script>
+</body>
+</html>
