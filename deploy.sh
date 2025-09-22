@@ -1,172 +1,102 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
-# ============ НАСТРОЙКИ (ОБЯЗАТЕЛЬНО ПРОВЕРЬ) ============
-# Домен твоего сайта (для Nginx/SSL). Можно указать несколько через пробел.
-DOMAIN="example.com"
-# Путь/папка, куда деплоим код
-APP_NAME="utmtracker"
-BASE_DIR="/opt/${APP_NAME}"
-# Git-репозиторий и ветка
+# ====== НАСТРОЙКИ ======
+PROJECT_DIR="/opt/utmtracker"
 REPO_URL="https://github.com/rjokhan/utm_tracker.git"
-REPO_BRANCH="main"
-# Имя Django-проекта (пакет, где wsgi.py). У тебя — utmtracker
-DJANGO_PROJECT="utmtracker"
-# Пользователь, от чьего имени хранятся файлы (обычно ты). Сокет и сервис — от www-data
-APP_USER="${SUDO_USER:-$USER}"
-# Включить выпуск SSL от Let's Encrypt (true/false)
-ENABLE_SSL=true
-# Email для certbot (если ENABLE_SSL=true)
-LE_EMAIL="you@example.com"
-# =========================================================
+BRANCH="main"
+PYTHON_BIN="/usr/bin/python3"
+PORT="8002"                           # на каком порту слушает gunicorn
+SERVICE_NAME="utmtracker"
+ENV_FILE="/etc/utmtracker.env"        # сюда положим переменные окружения
+DOMAIN="utm_tracker.qptolov.uz"       # твой домен (добавь IP в ALLOWED_HOSTS в settings.py)
+# Пароли ролей (можно оставить пустыми и прописать позже в /etc/utmtracker.env)
+CREATOR_PASS=""                       # QP_CREATOR_PASSWORD
+VIEWER_PASS=""                        # QP_VIEWER_PASSWORD
+# =======================
 
-echo "[1/12] Обновляем пакеты и ставим зависимости..."
-apt-get update -y
-DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  python3 python3-venv python3-pip \
-  git nginx \
-  ufw \
-  jq
+echo "[1/8] Подготовка каталогов"
+mkdir -p "$PROJECT_DIR"
+cd "$PROJECT_DIR"
 
-if $ENABLE_SSL; then
-  DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx
+echo "[2/8] Код проекта: clone/pull"
+if [ ! -d .git ]; then
+  git init
+  git remote add origin "$REPO_URL" || true
 fi
+git fetch origin "$BRANCH"
+# Сбрасываем локальные изменения (если хочешь без reset, закомментируй следующие 2 строки):
+git reset --hard "origin/$BRANCH"
+git checkout -B "$BRANCH" "origin/$BRANCH"
 
-echo "[2/12] Создаём каталоги..."
-mkdir -p "$BASE_DIR"
-cd "$BASE_DIR"
-
-echo "[3/12] Клонируем/обновляем репозиторий..."
-if [ ! -d "${BASE_DIR}/.git" ]; then
-  git clone -b "$REPO_BRANCH" "$REPO_URL" "$BASE_DIR"
+echo "[3/8] Python venv и зависимости"
+if [ ! -d venv ]; then
+  $PYTHON_BIN -m venv venv
+fi
+source venv/bin/activate
+pip install --upgrade pip wheel
+# Если есть requirements.txt — поставим по нему, иначе — поставим базовый набор
+if [ -f requirements.txt ]; then
+  pip install -r requirements.txt
 else
-  git fetch --all
-  git checkout "$REPO_BRANCH"
-  git pull --ff-only
+  pip install "Django>=4.2" gunicorn
 fi
 
-echo "[4/12] Создаём/обновляем виртуальное окружение..."
-if [ ! -d "${BASE_DIR}/venv" ]; then
-  python3 -m venv "${BASE_DIR}/venv"
-fi
-source "${BASE_DIR}/venv/bin/activate"
-
-# requirements.txt на случай если вдруг отсутствует (минимальный набор)
-if [ ! -f "${BASE_DIR}/requirements.txt" ]; then
-  cat > "${BASE_DIR}/requirements.txt" << 'REQ'
-Django>=4.2,<5.0
-gunicorn>=21.2
-# Если будешь использовать Postgres — раскомментируй
-# psycopg2-binary>=2.9
-REQ
-fi
-
-echo "[5/12] pip install -r requirements.txt..."
-pip install --upgrade pip
-pip install -r requirements.txt
-
-echo "[6/12] .env для Django (если отсутствует)..."
-ENV_FILE="${BASE_DIR}/.env"
-if [ ! -f "$ENV_FILE" ]; then
-  SECRET=$(python - <<'PY'
-import secrets, string
-alphabet = string.ascii_letters + string.digits + string.punctuation
-print(''.join(secrets.choice(alphabet) for _ in range(50)))
-PY
-)
-  cat > "$ENV_FILE" <<EOF
-DJANGO_SECRET_KEY=${SECRET}
-DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=${DOMAIN}
-# Если нужен CSRF_TRUSTED_ORIGINS:
-DJANGO_CSRF_TRUSTED_ORIGINS=https://${DOMAIN}
-DJANGO_STATIC_ROOT=${BASE_DIR}/staticfiles
-# Для SQLite ничего не нужно. Для Postgres добавь свои DSN переменные.
+echo "[4/8] Среда для приложения (/etc/utmtracker.env)"
+cat > "$ENV_FILE" <<EOF
+DJANGO_SETTINGS_MODULE=utmtracker.settings
+QP_CREATOR_PASSWORD=${CREATOR_PASS}
+QP_VIEWER_PASSWORD=${VIEWER_PASS}
+PYTHONUNBUFFERED=1
 EOF
-  chmod 600 "$ENV_FILE"
-fi
+chmod 600 "$ENV_FILE"
 
-echo "[7/12] Миграции и collectstatic..."
-export DJANGO_SETTINGS_MODULE="${DJANGO_PROJECT}.settings"
-python manage.py migrate --noinput
-# Убедись, что в settings.py настроены STATIC_URL='/static/' и
-# STATICFILES_DIRS включает assets/, а STATIC_ROOT — из .env (см. выше)
-python manage.py collectstatic --noinput
+echo "[5/8] Миграции и статика"
+# На всякий случай — добавим IP/домен в ALLOWED_HOSTS, если ты это ещё не сделал в settings.py
+# (скрипт ничего не ломает, просто напоминает)
+python manage.py migrate --noinput || true
+python manage.py collectstatic --noinput || true
 
-echo "[8/12] Настраиваем systemd для Gunicorn..."
-GUNI_SERVICE="/etc/systemd/system/gunicorn-${APP_NAME}.service"
-cat > "$GUNI_SERVICE" <<EOF
+echo "[6/8] Завершаем старые gunicorn (если висят) и выключаем старый сервис"
+pkill -f "gunicorn .*${SERVICE_NAME}" || true
+systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
+systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
+
+echo "[7/8] Создаём systemd unit"
+UNIT_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+cat > "$UNIT_FILE" <<EOF
 [Unit]
-Description=gunicorn for ${APP_NAME}
+Description=Gunicorn service for UTM Tracker
 After=network.target
 
 [Service]
-User=www-data
-Group=www-data
-WorkingDirectory=${BASE_DIR}
+Type=simple
+User=root
+Group=root
 EnvironmentFile=${ENV_FILE}
-ExecStart=${BASE_DIR}/venv/bin/gunicorn --workers 3 --bind unix:${BASE_DIR}/gunicorn.sock ${DJANGO_PROJECT}.wsgi:application
+WorkingDirectory=${PROJECT_DIR}
+# Важно: --chdir, чтобы модуль utmtracker находился гарантированно
+ExecStartPre=${PROJECT_DIR}/venv/bin/python ${PROJECT_DIR}/manage.py migrate --noinput
+ExecStartPre=${PROJECT_DIR}/venv/bin/python ${PROJECT_DIR}/manage.py collectstatic --noinput
+ExecStart=${PROJECT_DIR}/venv/bin/gunicorn utmtracker.wsgi:application \\
+  --chdir ${PROJECT_DIR} \\
+  --bind 127.0.0.1:${PORT} \\
+  --workers 3 \\
+  --timeout 120
+
 Restart=always
-RuntimeDirectory=gunicorn
-RuntimeDirectoryMode=0755
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+echo "[8/8] Запуск сервиса"
 systemctl daemon-reload
-systemctl enable "gunicorn-${APP_NAME}.service"
-systemctl restart "gunicorn-${APP_NAME}.service"
+systemctl enable "${SERVICE_NAME}"
+systemctl restart "${SERVICE_NAME}"
+sleep 1
+systemctl status "${SERVICE_NAME}" --no-pager -l || true
 
-echo "[9/12] Права на проект и сокет..."
-chown -R "${APP_USER}:www-data" "$BASE_DIR"
-chmod -R 750 "$BASE_DIR"
-# Сокет создаёт gunicorn от www-data. У nginx достаточно прав на чтение.
-
-echo "[10/12] Nginx site..."
-NGINX_SITE="/etc/nginx/sites-available/${APP_NAME}.conf"
-cat > "$NGINX_SITE" <<EOF
-server {
-    listen 80;
-    server_name ${DOMAIN};
-
-    # Статика, которую собрал collectstatic
-    location /static/ {
-        alias ${BASE_DIR}/staticfiles/;
-        access_log off;
-        expires 30d;
-    }
-
-    # Проксирование в gunicorn по unix-сокету
-    location / {
-        include proxy_params;
-        proxy_pass http://unix:${BASE_DIR}/gunicorn.sock;
-    }
-
-    client_max_body_size 20M;
-}
-EOF
-
-ln -sf "$NGINX_SITE" "/etc/nginx/sites-enabled/${APP_NAME}.conf"
-# отключаем дефолтный конфиг
-if [ -f /etc/nginx/sites-enabled/default ]; then
-  rm -f /etc/nginx/sites-enabled/default
-fi
-
-echo "[11/12] Проверяем nginx и перезапускаем..."
-nginx -t
-systemctl reload nginx
-
-echo "[12/12] Фаервол и (опционально) SSL..."
-ufw allow 'Nginx Full' || true
-
-if $ENABLE_SSL; then
-  # Выпустит/обновит сертификаты и перезапишет server block под 443
-  certbot --nginx -d ${DOMAIN} -m ${LE_EMAIL} --agree-tos --non-interactive --redirect || true
-fi
-
-echo "=============================================="
-echo "Готово! Приложение задеплоено в ${BASE_DIR}"
-echo "Проверь: http://${DOMAIN}"
-echo "Сервис: systemctl status gunicorn-${APP_NAME}.service"
-echo "=============================================="
+echo "Готово. Gunicorn слушает 127.0.0.1:${PORT}"
+echo "Проверка:  ss -tulpn | grep ${PORT}  и  journalctl -u ${SERVICE_NAME} -n 100 -f"
