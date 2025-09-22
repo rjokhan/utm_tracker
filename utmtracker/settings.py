@@ -5,19 +5,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-CHANGE_ME'
 DEBUG = True
-ALLOWED_HOSTS: list[str] = [
-    "89.39.95.53",
-    "utm_tracker.qptolov.uz",  # (домен с подчёркиванием технически невалиден; лучше utm-tracker.qptolov.uz)
-    "localhost",
-    "127.0.0.1",
+ALLOWED_HOSTS = ['89.39.95.53', 'utm_tracker.qptolov.uz', 'localhost', '127.0.0.1']
+CSRF_TRUSTED_ORIGINS = [
+    'http://89.39.95.53', 'https://89.39.95.53',
+    'http://utm_tracker.qptolov.uz', 'https://utm_tracker.qptolov.uz'
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://89.39.95.53",
-    "https://89.39.95.53",
-    "http://utm_tracker.qptolov.uz",
-    "https://utm_tracker.qptolov.uz",
-]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -31,6 +24,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # ← сразу после SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -80,8 +74,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'assets']   # твоя папка со стилями/скриптами/картинками
-STATIC_ROOT = BASE_DIR / 'staticfiles'     # для деплоя (collectstatic)
+STATICFILES_DIRS = [BASE_DIR / 'assets']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
