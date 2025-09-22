@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-CHANGE_ME'
 DEBUG = True
-ALLOWED_HOSTS: list[str] = ['http://89.39.95.53:8002/']
+ALLOWED_HOSTS: list[str] = ['http://89.39.95.53']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
