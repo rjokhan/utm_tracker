@@ -5,7 +5,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-CHANGE_ME'
 DEBUG = True
-ALLOWED_HOSTS: list[str] = ['http://89.39.95.53', "http://utm_tracker.qptolov.uz"]
+ALLOWED_HOSTS: list[str] = [
+    "89.39.95.53",
+    "utm_tracker.qptolov.uz",  # (домен с подчёркиванием технически невалиден; лучше utm-tracker.qptolov.uz)
+    "localhost",
+    "127.0.0.1",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://89.39.95.53",
+    "https://89.39.95.53",
+    "http://utm_tracker.qptolov.uz",
+    "https://utm_tracker.qptolov.uz",
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
