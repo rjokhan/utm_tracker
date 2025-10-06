@@ -1,26 +1,28 @@
-# utmtracker/urls.py
 from django.contrib import admin
 from django.urls import path
-from utmtracker import views as api          # API
-from core import views as pages              # HTML-страницы
+from utmtracker import views as api
+from core import views as pages
 
 urlpatterns = [
-    # ---------- HTML ----------
-    path('', pages.index_page, name='index'),                          # Dashboard
-    path('projects/', pages.projects_page, name='projects'),           # Список проектов
-    path('project/<int:pk>/', pages.project_page, name='project'),     # Один проект
-    path('members/', pages.members_page, name='members'),              # Участники
+    # HTML
+    path('', pages.index_page, name='index'),
+    path('projects/', pages.projects_page, name='projects'),
+    path('project/<int:pk>/', pages.project_page, name='project'),
+    path('members/', pages.members_page, name='members'),
 
-    # ---------- AUTH ----------
-    path('api/login', api.login, name='api_login'),                    # вход по username
-    path('api/logout', api.logout, name='api_logout'),                 # выход
-    path('api/me', api.me, name='api_me'),                             # текущий пользователь
+    # ADMIN
+    path('admin/', admin.site.urls),   # ← добавь это
 
-    # ---------- DASHBOARD ----------
+    # AUTH
+    path('api/login', api.login, name='api_login'),
+    path('api/logout', api.logout, name='api_logout'),
+    path('api/me', api.me, name='api_me'),
+
+    # DASHBOARD
     path('api/summary', api.summary, name='api_summary'),
     path('api/leaderboard/global', api.global_leaderboard, name='api_global_leaderboard'),
 
-    # ---------- PROJECTS ----------
+    # PROJECTS
     path('api/projects', api.projects_list, name='api_projects_list'),
     path('api/projects/create', api.project_create, name='api_project_create'),
     path('api/projects/<int:pk>', api.project_detail, name='api_project_detail'),
@@ -30,10 +32,10 @@ urlpatterns = [
     path('api/projects/<int:pk>/links/by-owner/<int:owner_id>', api.project_links_by_owner, name='api_project_links_by_owner'),
     path('api/projects/<int:pk>/links/create', api.project_link_create, name='api_project_link_create'),
 
-    # ---------- MEMBERS ----------
+    # MEMBERS
     path('api/members', api.members_list, name='api_members_list'),
     path('api/members/create', api.member_create, name='api_member_create'),
 
-    # ---------- REDIRECT ----------
+    # REDIRECT
     path('go/<int:pk>', api.link_redirect, name='go'),
 ]
