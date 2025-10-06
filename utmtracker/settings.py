@@ -4,8 +4,8 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-CHANGE_ME'
-DEBUG = True
-ALLOWED_HOSTS = ['89.39.95.53', 'utm_tracker.qptolov.uz', 'localhost', '127.0.0.1']
+DEBUG = False
+ALLOWED_HOSTS = ['89.39.95.53', 'utm-tracker.qptolov.uz', 'localhost', '127.0.0.1']
 CSRF_TRUSTED_ORIGINS = [
     'http://89.39.95.53', 'https://89.39.95.53',
     'http://utm_tracker.qptolov.uz', 'https://utm_tracker.qptolov.uz'
