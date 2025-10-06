@@ -20,37 +20,74 @@
     el.textContent = msg;
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
-    setTimeout(() => { el.classList.remove('show'); el.remove(); }, 2200);
+    setTimeout(() => { el.classList.remove('show'); el.remove(); }, 2400);
   };
 
+  const safe = (v) => (v ?? '').toString();
   const fmtDate = (iso) => {
     if (!iso) return '';
-    try {
-      // показываем YYYY.MM.DD (как в макете, точки)
-      const [y,m,d] = iso.split('-');
-      if (!y || !m || !d) return iso.replaceAll('-', '.');
-      return `${y}.${m}.${d}`;
-    } catch {
-      return iso.replaceAll('-', '.');
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) {
+      // fallback на строку YYYY-MM-DD -> YYYY.MM.DD
+      return safe(iso).replaceAll('-', '.');
     }
+    const d = new Date(t);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}.${mm}.${dd}`;
   };
 
-  const openModal  = () => { els.overlay.classList.add('show'); els.modal.classList.add('open'); };
-  const closeModal = ()  => { els.overlay.classList.remove('show'); els.modal.classList.remove('open'); };
+  const openModal  = () => { els.overlay?.classList.add('show'); els.modal?.classList.add('open'); };
+  const closeModal = ()  => { els.overlay?.classList.remove('show'); els.modal?.classList.remove('open'); };
+
+  const renderSkeleton = () => {
+    if (!els.list) return;
+    els.list.innerHTML = '';
+    for (let i=0;i<3;i++){
+      const row = document.createElement('div');
+      row.className = 'project-row skeleton';
+      row.innerHTML = `
+        <div class="project-name">Loading…</div>
+        <div class="project-dates">YYYY.MM.DD – YYYY.MM.DD</div>
+        <button class="go-btn" aria-label="open" disabled>→</button>
+      `;
+      els.list.appendChild(row);
+    }
+  };
 
   // ---- Render ----
   async function renderProjects() {
     if (!els.list) return;
-    els.list.innerHTML = '';
+    renderSkeleton();
 
-    const { items = [] } = await API.listProjects();
+    let items = [];
+    try {
+      const res = await API.listProjects();
+      items = res?.items || [];
+    } catch (e) {
+      console.error(e);
+      els.list.innerHTML = '';
+      toast('Failed to load projects', 'error');
+      return;
+    }
+
+    els.list.innerHTML = '';
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'project-row empty';
+      empty.textContent = 'No projects yet';
+      els.list.appendChild(empty);
+      return;
+    }
+
     items.forEach(p => {
       const row = document.createElement('div');
       row.className = 'project-row';
       const from = fmtDate(p.date_from || '');
       const to   = fmtDate(p.date_to || '');
       row.innerHTML = `
-        <div class="project-name">${p.name}</div>
+        <div class="project-name">${safe(p.name)}</div>
         <div class="project-dates">${from}${to ? ' – ' + to : ''}</div>
         <button class="go-btn" data-id="${p.id}" aria-label="open">→</button>
       `;
@@ -68,7 +105,7 @@
 
   // ---- Create Project flow ----
   async function setupCreateProject() {
-    const me = await API.me();
+    const me = await API.me().catch(() => null);
     const isCreator = me?.role === 'creator';
 
     // статус роли в хэдере
@@ -82,15 +119,22 @@
       }
     }
 
+    // дизейбл кнопки для viewer (и убираем фокус/курсор)
+    if (!isCreator) {
+      els.openBtn?.setAttribute('disabled', 'disabled');
+    } else {
+      els.openBtn?.removeAttribute('disabled');
+    }
+
     // открыть модалку
     els.openBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       if (!isCreator) return toast('YOU CANNOT EDIT', 'error');
-      // очистить форму
-      if (els.form) {
-        els.form.reset();
-      }
+      els.form?.reset();
       openModal();
+      // автофокус на name
+      const nameInput = els.form?.querySelector('input[name="name"]');
+      setTimeout(() => nameInput?.focus(), 50);
     });
 
     // закрытия
@@ -98,6 +142,14 @@
     els.modal?.querySelector('[data-close]')?.addEventListener('click', closeModal);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && els.modal?.classList.contains('open')) closeModal();
+    });
+
+    // Enter внутри модалки — сабмит
+    els.modal?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        els.form?.requestSubmit?.();
+      }
     });
 
     // отправка формы
@@ -109,9 +161,9 @@
       submitting = true;
 
       const fd   = new FormData(els.form);
-      const name = (fd.get('name') || '').toString().trim();
-      const from = (fd.get('from') || '').toString() || null;
-      const to   = (fd.get('to')   || '').toString() || null;
+      const name = safe(fd.get('name')).trim();
+      const from = safe(fd.get('from')) || null;
+      const to   = safe(fd.get('to'))   || null;
 
       if (!name) { submitting = false; return toast('Enter project name', 'error'); }
 

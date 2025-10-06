@@ -1,27 +1,42 @@
 # utmtracker/views.py
 from __future__ import annotations
+from typing import Any, Dict, List
+
 from django.http import JsonResponse, HttpResponseRedirect, HttpRequest
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count, Sum, F
 from django.shortcuts import get_object_or_404
-from typing import Any, Dict
 
 from core.models import Project, Member, Link, ProjectMember
 
 
-# --------------------------
-# Helpers
-# --------------------------
-def _role(request: HttpRequest) -> str:
-    """Роль берём из сессии. По умолчанию viewer, чтобы безопаснее в проде."""
-    return request.session.get("role", "viewer")
+# ==========================
+# Helpers (session & roles)
+# ==========================
+def _current_user(request: HttpRequest) -> Member | None:
+    uid = request.session.get("user_id")
+    if not uid:
+        return None
+    try:
+        return Member.objects.get(pk=uid)
+    except Member.DoesNotExist:
+        return None
 
-def _require_creator(request: HttpRequest) -> JsonResponse | None:
-    """Возвращает JsonResponse-ошибку, если не creator. Иначе None."""
-    if _role(request) != "creator":
-        return JsonResponse({"error": "forbidden", "detail": "creator required"}, status=403)
+
+def _role(request: HttpRequest) -> str:
+    """'editor' | 'viewer' | 'anon'"""
+    user = _current_user(request)
+    if not user:
+        return "anon"
+    return "editor" if user.is_editor else "viewer"
+
+
+def _require_editor(request: HttpRequest):
+    if _role(request) != "editor":
+        return JsonResponse({"error": "forbidden", "detail": "editor required"}, status=403)
     return None
+
 
 def _project_brief(p: Project) -> Dict[str, Any]:
     return {
@@ -31,46 +46,68 @@ def _project_brief(p: Project) -> Dict[str, Any]:
         "date_to": p.date_to.isoformat() if p.date_to else None,
     }
 
+
 def _member_row(name: str, links: int, clicks: int, member_id: int | None = None) -> Dict[str, Any]:
     return {"id": member_id, "name": name, "links": links, "clicks": clicks or 0}
 
 
-# --------------------------
-# Auth (простая сессия)
-# --------------------------
+# ==========================
+# Auth: username -> session
+# ==========================
 @csrf_exempt
 @require_POST
 def login(request: HttpRequest):
     """
-    Упрощённый вход по паролю из попапа.
-    JSON: { "password": "..." }
-    Логика:
-      - если password содержит 'creator' -> роль creator
-      - иначе viewer
-    В проде привяжешь к реальным паролям/модели.
+    JSON: { "username": "..." }
+    - если Member с таким именем есть — авторизуем
+    - иначе создаём (по умолчанию viewer)
+    - кладём user_id в сессию
     """
     import json
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
         data = {}
-    pwd = (data.get("password") or "").lower()
-    role = "creator" if "creator" in pwd else "viewer"
-    request.session["role"] = role
-    return JsonResponse({"role": role})
+    username = (data.get("username") or "").strip()
+    if not username:
+        return JsonResponse({"error": "username_required"}, status=400)
+
+    member, _ = Member.objects.get_or_create(name=username)
+    request.session["user_id"] = member.id
+
+    return JsonResponse({
+        "ok": True,
+        "username": member.name,
+        "role": "editor" if member.is_editor else "viewer",
+        "is_editor": member.is_editor,
+    })
+
+
+@csrf_exempt
+@require_POST
+def logout(request: HttpRequest):
+    """Полный выход: очищаем сессию."""
+    request.session.flush()
+    return JsonResponse({"ok": True})
 
 
 @require_GET
 def me(request: HttpRequest):
-    # если роли в сессии нет — вернём null, чтобы фронт понял, что надо показать попап
-    role = request.session.get("role")  # None | 'creator' | 'viewer'
-    return JsonResponse({"role": role})
+    """Текущий пользователь/роль из сессии."""
+    user = _current_user(request)
+    if not user:
+        return JsonResponse({"auth": False, "role": "anon"})
+    return JsonResponse({
+        "auth": True,
+        "username": user.name,
+        "role": "editor" if user.is_editor else "viewer",
+        "is_editor": user.is_editor,
+    })
 
 
-
-# --------------------------
+# ==========================
 # Summary / Dashboard
-# --------------------------
+# ==========================
 @require_GET
 def summary(request: HttpRequest):
     projects = Project.objects.count()
@@ -83,7 +120,7 @@ def summary(request: HttpRequest):
 def global_leaderboard(request: HttpRequest):
     """
     Глобальный лидерборд по всем ссылкам: группируем по Member.
-    Возвращает items: [{id,name,links,clicks}]
+    items: [{id,name,links,clicks}]
     """
     rows = (
         Link.objects.values("owner_id", "owner__name")
@@ -94,9 +131,9 @@ def global_leaderboard(request: HttpRequest):
     return JsonResponse({"items": items})
 
 
-# --------------------------
+# ==========================
 # Projects
-# --------------------------
+# ==========================
 @require_GET
 def projects_list(request: HttpRequest):
     items = [_project_brief(p) for p in Project.objects.order_by("-id")]
@@ -106,19 +143,22 @@ def projects_list(request: HttpRequest):
 @csrf_exempt
 @require_POST
 def project_create(request: HttpRequest):
-    err = _require_creator(request)
+    err = _require_editor(request)
     if err:
         return err
+
     import json
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
         data = {}
+
     name = (data.get("name") or "").strip()
     date_from = data.get("date_from") or None
     date_to = data.get("date_to") or None
     if not name:
         return JsonResponse({"error": "name_required"}, status=400)
+
     p = Project.objects.create(name=name, date_from=date_from or None, date_to=date_to or None)
     return JsonResponse({"id": p.id})
 
@@ -151,13 +191,11 @@ def project_leaderboard(request: HttpRequest, pk: int):
 @require_GET
 def project_members(request: HttpRequest, pk: int):
     """
-    Все участники проекта из таблицы membership + их агрегаты (links/clicks) в рамках этого проекта.
+    Участники проекта (по таблице ProjectMember) + их агрегаты в рамках этого проекта.
     items: [{id,name,links,clicks}]
     """
-    # убедимся, что проект существует
     get_object_or_404(Project, pk=pk)
 
-    # члены проекта по таблице связей
     member_ids = list(
         ProjectMember.objects.filter(project_id=pk).values_list("member_id", flat=True)
     )
@@ -171,7 +209,7 @@ def project_members(request: HttpRequest, pk: int):
     )
     by_owner = {r["owner_id"]: r for r in agg}
 
-    items = []
+    items: List[Dict[str, Any]] = []
     for m in members:
         r = by_owner.get(m.id, {})
         items.append({
@@ -190,7 +228,7 @@ def project_add_member(request: HttpRequest, pk: int):
     Добавляет существующего Member в Project (через ProjectMember).
     body: { "member_id": <int> }
     """
-    err = _require_creator(request)
+    err = _require_editor(request)
     if err:
         return err
 
@@ -211,61 +249,66 @@ def project_add_member(request: HttpRequest, pk: int):
     return JsonResponse({"ok": True})
 
 
-# --------------------------
-# Members (глобальный каталог)
-# --------------------------
+# ==========================
+# Members (global)
+# ==========================
 @require_GET
 def members_list(request: HttpRequest):
     """
-    Список всех участников (для страницы /members и для 'Add Member' в проект).
-    items: [{id,name,active_projects,links,clicks,created_at}]
-    active_projects и clicks считаем по всем ссылкам.
+    Список всех участников (для /members и для 'Add Member' в проект).
+    items: [{id,name,is_editor,active_projects,links,clicks,created_at}]
     """
     base = Member.objects.all().order_by("created_at")
 
     agg = (
         Link.objects.values("owner_id")
-        .annotate(total_links=Count("id"), total_clicks=Sum("clicks"), projects=Count("project", distinct=True))
+        .annotate(
+            total_links=Count("id"),
+            total_clicks=Sum("clicks"),
+            projects=Count("project", distinct=True),
+        )
     )
     by_owner = {r["owner_id"]: r for r in agg}
 
-    items = []
+    items: List[Dict[str, Any]] = []
     for m in base:
         r = by_owner.get(m.id, {})
-        items.append(
-            {
-                "id": m.id,
-                "name": m.name,
-                "active_projects": r.get("projects", 0),
-                "links": r.get("total_links", 0),
-                "clicks": r.get("total_clicks", 0) or 0,
-                "created_at": m.created_at.isoformat(),
-            }
-        )
+        items.append({
+            "id": m.id,
+            "name": m.name,
+            "is_editor": m.is_editor,
+            "active_projects": r.get("projects", 0),
+            "links": r.get("total_links", 0),
+            "clicks": r.get("total_clicks", 0) or 0,
+            "created_at": m.created_at.isoformat(),
+        })
     return JsonResponse({"items": items})
 
 
 @csrf_exempt
 @require_POST
 def member_create(request: HttpRequest):
-    err = _require_creator(request)
+    err = _require_editor(request)
     if err:
         return err
+
     import json
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
         data = {}
+
     name = (data.get("name") or "").strip()
     if not name:
         return JsonResponse({"error": "name_required"}, status=400)
+
     m, created = Member.objects.get_or_create(name=name)
     return JsonResponse({"id": m.id, "created": created})
 
 
-# --------------------------
+# ==========================
 # Links
-# --------------------------
+# ==========================
 @require_GET
 def project_links_by_owner(request: HttpRequest, pk: int, owner_id: int):
     """
@@ -290,9 +333,10 @@ def project_link_create(request: HttpRequest, pk: int):
     JSON: { "owner_id": int, "name": str, "target_url": str }
     Возвращает { "id": <link_id> }
     """
-    err = _require_creator(request)
+    err = _require_editor(request)
     if err:
         return err
+
     import json
     try:
         data = json.loads(request.body.decode("utf-8"))
@@ -310,12 +354,15 @@ def project_link_create(request: HttpRequest, pk: int):
     owner = get_object_or_404(Member, pk=owner_id)
 
     link = Link.objects.create(project=project, owner=owner, name=name, target_url=target_url, clicks=0)
+    # важно: если участник ещё не привязан к проекту, привяжем автоматом
+    ProjectMember.objects.get_or_create(project=project, member=owner)
+
     return JsonResponse({"id": link.id})
 
 
-# --------------------------
+# ==========================
 # Redirect / Click counting
-# --------------------------
+# ==========================
 @require_GET
 def link_redirect(request: HttpRequest, pk: int):
     """
@@ -325,11 +372,3 @@ def link_redirect(request: HttpRequest, pk: int):
     link = get_object_or_404(Link, pk=pk)
     Link.objects.filter(pk=pk).update(clicks=F("clicks") + 1)
     return HttpResponseRedirect(link.target_url)
-
-
-@csrf_exempt
-@require_POST
-def logout(request: HttpRequest):
-    """Просто очищаем роль в сессии."""
-    request.session.pop("role", None)
-    return JsonResponse({"ok": True})

@@ -29,9 +29,8 @@ window.API = (() => {
     body: JSON.stringify(body),
   })).then(toJSON);
 
-  // Если решишь включить CSRF (и убрать @csrf_exempt на вьюхах),
-  // раскомментируй helper ниже и добавь заголовок X-CSRFToken в POST.
-/*
+  // Если включишь CSRF (и уберёшь @csrf_exempt), раскомментируй блок ниже:
+  /*
   const getCookie = (name) => {
     const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
     return m ? m.pop() : '';
@@ -39,19 +38,19 @@ window.API = (() => {
   const POST = (url, body = {}) => fetch(url, withDefaults({
     method: 'POST',
     body: JSON.stringify(body),
-    headers: {
-      'X-CSRFToken': getCookie('csrftoken'),
-    }
+    headers: { 'X-CSRFToken': getCookie('csrftoken') }
   })).then(toJSON);
-*/
+  */
 
   // --- Auth / Role ----------------------------------------------------------
-  const login = (password) => POST('/api/login', { password });  // -> {role}
-  const me    = () => GET('/api/me');                             // -> {role}
+  // username login → session (создаёт Member при необходимости)
+  const login  = (username) => POST('/api/login', { username }); // -> {ok, username, role, is_editor}
+  const logout = () => POST('/api/logout', {});                  // -> {ok: true}
+  const me     = () => GET('/api/me');                           // -> {auth, username?, role, is_editor?}
 
   // --- Dashboard ------------------------------------------------------------
   const summary           = () => GET('/api/summary');            // -> {projects,links,clicks}
-  const globalLeaderboard = () => GET('/api/leaderboard/global'); // -> {items:[{name,links,clicks}]}
+  const globalLeaderboard = () => GET('/api/leaderboard/global'); // -> {items:[{id,name,links,clicks}]}
 
   // --- Projects -------------------------------------------------------------
   const listProjects       = () => GET('/api/projects');                     // -> {items:[{id,name,date_from,date_to}]}
@@ -60,10 +59,10 @@ window.API = (() => {
   const projectLeaderboard = (id) => GET(`/api/projects/${id}/leaderboard`); // -> {items:[{id,name,links,clicks}]}
   const projectMembers     = (id) => GET(`/api/projects/${id}/members`);     // -> {items:[{id,name,links,clicks}]}
   const projectAddMember   = (id, member_id) =>
-    POST(`/api/projects/${id}/members/add`, { member_id });                  // (пока вернёт not_supported)
+    POST(`/api/projects/${id}/members/add`, { member_id });                  // -> {ok:true}
 
   // --- Members (глобальный справочник) -------------------------------------
-  const membersAll   = () => GET('/api/members');                   // -> {items:[{id,name,active_projects,links,clicks,created_at}]}
+  const membersAll   = () => GET('/api/members');                   // -> {items:[{id,name,is_editor,active_projects,links,clicks,created_at}]}
   const memberCreate = (name) => POST('/api/members/create', { name }); // -> {id, created:true|false}
 
   // --- Links ----------------------------------------------------------------
@@ -79,7 +78,7 @@ window.API = (() => {
   // Публичный API
   return {
     // auth
-    login, me,
+    login, logout, me,
     // dashboard
     summary, globalLeaderboard,
     // projects
@@ -91,5 +90,3 @@ window.API = (() => {
     linkCreate, linksByOwner, shortLink,
   };
 })();
-
-const logout = () => post('/api/logout');

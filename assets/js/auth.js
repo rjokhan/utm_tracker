@@ -1,71 +1,92 @@
 // static/js/auth.js
 (() => {
-  const $ = (s) => document.querySelector(s);
+  const $ = (s, r = document) => r.querySelector(s);
 
   const els = {
     overlay: $('#loginOverlay'),
     modal:   $('#loginModal'),
-    pass:    $('#loginPassword'),
+    input:   $('#loginUsername'),     // <-- username вместо password
     submit:  $('#loginSubmit'),
-    brand:   document.querySelector('.brand img'), // <- логотип
+    brand:   $('.brand img'),         // клик по логотипу = logout
   };
 
-  const open  = () => { els.overlay?.classList.add('show'); els.modal?.classList.add('show'); };
+  const open  = () => { els.overlay?.classList.add('show'); els.modal?.classList.add('show'); els.input?.focus(); };
   const close = ()  => { els.overlay?.classList.remove('show'); els.modal?.classList.remove('show'); };
 
+  // Проставляем статус на страницах: .status, #roleBadge, #roleLabel/#roleHint
   const setStatusBadges = (role) => {
+    // role из API: 'editor' | 'viewer' | 'anon'
+    const label = role === 'editor' ? 'Creator' : role === 'viewer' ? 'Viewer' : '';
+    const hint  = role === 'editor' ? '(can edit)' : role === 'viewer' ? '(only view)' : '';
+
     document.querySelectorAll('.status, #roleBadge').forEach(el => {
-      if (role === 'creator') el.innerHTML = 'Status | <b>Creator</b> <span class="muted">(can edit)</span>';
-      else if (role === 'viewer') el.innerHTML = 'Status | <b>Viewer</b> <span class="muted">(only view)</span>';
-      else el.textContent = '';
+      if (!label) { el.textContent = ''; return; }
+      el.innerHTML = `Status | <b>${label}</b> <span class="muted">${hint}</span>`;
     });
-    const label = document.getElementById('roleLabel');
-    const hint  = document.getElementById('roleHint');
-    if (label && hint) {
-      if (role === 'creator') { label.textContent = 'Creator'; hint.textContent  = '(can edit)'; }
-      else if (role === 'viewer') { label.textContent = 'Viewer'; hint.textContent = '(only view)'; }
-      else { label.textContent = ''; hint.textContent = ''; }
-    }
+
+    const labelEl = $('#roleLabel');
+    const hintEl  = $('#roleHint');
+    if (labelEl) labelEl.textContent = label || '';
+    if (hintEl)  hintEl.textContent  = hint || '';
   };
 
+  // Не даём закрыть попап кликом по фону до логина
+  els.overlay?.addEventListener('click', (e) => {
+    // игнорируем — требуем явный ввод имени
+    e.stopPropagation();
+  });
+
+  // Первичная инициализация
   async function init() {
     try {
-      const { role } = await API.me();
-      if (!role) {
+      const me = await API.me(); // {auth, username?, role}
+      if (!me.auth) {
+        setStatusBadges('anon');
         open();
       } else {
-        setStatusBadges(role);
+        setStatusBadges(me.role);
+        close();
       }
     } catch (e) {
       console.error('auth init failed', e);
+      setStatusBadges('anon');
       open();
     }
   }
 
-  // Сабмит пароля
+  // Сабмит username
   els.submit?.addEventListener('click', async () => {
-    const pwd = (els.pass?.value || '').trim();
-    if (!pwd) return;
+    const username = (els.input?.value || '').trim();
+    if (!username) {
+      els.input?.classList.add('shake');
+      setTimeout(() => els.input?.classList.remove('shake'), 500);
+      els.input?.focus();
+      return;
+    }
     try {
-      const { role } = await API.login(pwd);
-      setStatusBadges(role);
+      const res = await API.login(username); // {ok, username, role}
+      setStatusBadges(res.role === 'editor' ? 'editor' : 'viewer');
       close();
+      // Перегружаем, чтобы всё (кнопки-create и т.п.) отрисовалось с правами
+      location.reload();
     } catch (e) {
-      els.pass.classList.add('shake');
-      setTimeout(() => els.pass.classList.remove('shake'), 600);
+      console.error(e);
+      els.input?.classList.add('shake');
+      setTimeout(() => els.input?.classList.remove('shake'), 500);
     }
   });
 
-  els.pass?.addEventListener('keydown', (e) => {
+  // Enter для отправки
+  els.input?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') els.submit?.click();
   });
 
   // === Выход по клику на лого ===
   els.brand?.addEventListener('click', async () => {
-    try {
-      await API.logout();
-    } catch(e) {}
-    open(); // снова покажем попап
+    try { await API.logout(); } catch (_) {}
+    setStatusBadges('anon');
+    // После выхода сразу просим ввести имя снова
+    open();
   });
 
   if (document.readyState === 'loading') {

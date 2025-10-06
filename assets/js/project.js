@@ -16,11 +16,11 @@
     overlay:  $('#overlay'),
 
     // create link
-    modalLink:   $('#modalLink'),
-    linkName:    $('#linkName'),
-    linkUrl:     $('#linkUrl'),
-    linkOwner:   $('#linkOwner'),
-    ownerMenu:   $('#ownerMenu'),
+    modalLink:     $('#modalLink'),
+    linkName:      $('#linkName'),
+    linkUrl:       $('#linkUrl'),
+    linkOwner:     $('#linkOwner'),
+    ownerMenu:     $('#ownerMenu'),
     createLinkBtn: $('#createLinkBtn'),
     btnCreateLink: $('#btnCreateLink'),
 
@@ -43,31 +43,33 @@
     el.className = `alert ${type} slide`;
     el.textContent = msg;
     els.corner?.appendChild(el);
-    setTimeout(() => el.remove(), 2200);
+    setTimeout(() => el.remove(), 2400);
   };
 
   const openModal  = (m) => { els.overlay.classList.add('show'); m.classList.add('show'); };
   const closeModals = () => {
     els.overlay.classList.remove('show');
     $$('.modal.show').forEach(m => m.classList.remove('show'));
-    // закрыть выпадашки
     els.ownerMenu?.classList.remove('show');
     els.addMemberMenu?.classList.remove('show');
   };
 
   const fmtDate = (iso) => {
     if (!iso) return '';
-    try {
-      const d = new Date(iso);
-      const dd = String(d.getDate()).padStart(2,'0');
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const yyyy = d.getFullYear();
-      return `${dd}.${mm}.${yyyy}`;
-    } catch { return iso; }
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return '';
+    const d = new Date(t);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yyyy = d.getFullYear();
+    return `${dd}.${mm}.${yyyy}`;
   };
 
-  const shortUrl = (id) => `${location.origin}/go/${id}`;
-  const LINK_ICON = '/static/img/ic-link.png'; // иконка для кнопок ссылок
+  const number = (v) => Number(v || 0);
+  const formatInt = (v) => number(v).toLocaleString('en-US');
+  const safe = (v) => (v ?? '').toString();
+
+  const LINK_ICON = '/static/img/ic-link.png'; // статика
 
   // ---- state ----
   const state = {
@@ -75,8 +77,10 @@
     projectId: null,          // number
     project: null,            // {id,name,date_from,date_to}
     leaderboard: [],          // [{id,name,links,clicks}]
-    membersInProject: [],     // [{id,name,links,clicks}] (из /members)
-    allMembersCatalog: [],    // [{id,name}] (из /api/members)
+    membersInProject: [],     // [{id,name,links,clicks}]
+    allMembersCatalog: [],    // [{id,name}]
+    creatingLink: false,
+    addingMember: false,
   };
 
   // ---- get project id from URL /project/<id>/ ----
@@ -87,68 +91,79 @@
 
   // ---- renderers ----
   function renderHeader() {
-    els.name.textContent  = state.project?.name || '';
+    if (els.name) els.name.textContent = safe(state.project?.name);
     const d1 = state.project?.date_from ? fmtDate(state.project.date_from) : '';
     const d2 = state.project?.date_to   ? fmtDate(state.project.date_to)   : '';
-    els.dates.textContent = (d1 || d2) ? `${d1}${d2 ? ' – ' + d2 : ''}` : '';
+    if (els.dates) els.dates.textContent = (d1 || d2) ? `${d1}${d2 ? ' – ' + d2 : ''}` : '';
   }
 
   function renderKPIs() {
-    // members count = количество участников в проекте
     const membersCount = state.membersInProject.length;
-
-    // links count + clicks sum можно собрать из членов/лидерборда
     let linksCount = 0, clicksSum = 0;
     state.membersInProject.forEach(m => {
-      linksCount += Number(m.links || 0);
-      clicksSum  += Number(m.clicks || 0);
+      linksCount += number(m.links);
+      clicksSum  += number(m.clicks);
     });
 
-    els.kMembers.textContent = membersCount;
-    els.kLinks.textContent   = linksCount;
-    els.kClicks.textContent  = clicksSum;
+    if (els.kMembers) els.kMembers.textContent = formatInt(membersCount);
+    if (els.kLinks)   els.kLinks.textContent   = formatInt(linksCount);
+    if (els.kClicks)  els.kClicks.textContent  = formatInt(clicksSum);
+  }
+
+  function renderSkeleton() {
+    if (els.podium) {
+      els.podium.innerHTML = `
+        <div class="pod-col"><div class="pod-name">Loading…</div><div class="pod-step bronze"><div class="pod-place">3</div></div><div class="pod-clicks">—</div></div>
+        <div class="pod-col mid"><div class="pod-name">Loading…</div><div class="pod-step gold"><div class="pod-place">1</div></div><div class="pod-clicks">—</div></div>
+        <div class="pod-col"><div class="pod-name">Loading…</div><div class="pod-step silver"><div class="pod-place">2</div></div><div class="pod-clicks">—</div></div>
+      `;
+    }
+    if (els.others) {
+      els.others.innerHTML = `<div class="other last"><div class="col name"><span class="rank">4 –</span><span class="name">Loading…</span></div><div class="col links">— links</div><div class="col clicks">— clicks</div></div>`;
+    }
   }
 
   function renderPodiumAndOthers() {
     const podium = els.podium;
     const others = els.others;
+    if (!podium || !others) return;
+
     podium.innerHTML = '';
     others.innerHTML = '';
 
     const list = [...state.leaderboard];
-    if (list.length < 1) return;
+    if (!list.length) {
+      others.innerHTML = `<div class="other last"><div class="col name"><span class="rank">—</span><span class="name">No members yet</span></div><div class="col links">0 links</div><div class="col clicks">0 clicks</div></div>`;
+      return;
+    }
 
-    // top 3 в порядке 3-1-2
-    const order = [2,0,1];
     const top3 = [list[0], list[1], list[2]].filter(Boolean);
+    const order = [2,0,1]; // показываем как 3-1-2
 
-    // helper для блока колонки подиума
     const renderPodCol = (member, place) => {
       const cls = place === 1 ? 'gold' : place === 2 ? 'silver' : 'bronze';
       const col = document.createElement('div');
       col.className = 'pod-col' + (place === 1 ? ' mid' : '');
       col.innerHTML = `
-        <div class="pod-name">${member.name}</div>
+        <div class="pod-name">${safe(member.name)}</div>
         <div class="pod-bar ${cls}" data-links="${member.id}">
           <button class="link-chip" title="Show links" data-links="${member.id}">
             <img src="${LINK_ICON}" alt="">
           </button>
           <div class="pod-num">${place}</div>
         </div>
-        <div class="pod-clicks">${Number(member.clicks||0).toLocaleString('en-US')} clicks</div>
+        <div class="pod-clicks">${formatInt(member.clicks)} clicks</div>
       `;
       podium.appendChild(col);
     };
 
-    // нарисовать подиум
     order.forEach(idx => {
       const m = top3[idx];
       if (!m) return;
-      const place = idx === 0 ? 3 : idx === 1 ? 1 : 2; // соответствие индексу
+      const place = idx === 0 ? 3 : idx === 1 ? 1 : 2;
       renderPodCol(m, place);
     });
 
-    // остальные
     const rest = list.slice(3);
     rest.forEach((m, i) => {
       const row = document.createElement('div');
@@ -160,20 +175,19 @@
         </button>
         <div class="col name">
           <span class="rank">${i + 4} –</span>
-          <span class="name">${m.name}</span>
+          <span class="name">${safe(m.name)}</span>
         </div>
-        <div class="col links">${m.links} links</div>
-        <div class="col clicks">${Number(m.clicks||0).toLocaleString('en-US')} clicks</div>
+        <div class="col links">${formatInt(m.links)} links</div>
+        <div class="col clicks">${formatInt(m.clicks)} clicks</div>
       `;
       others.appendChild(row);
     });
   }
 
   async function openLinksList(ownerId) {
-    // подгрузить список ссылок участника
     const { items = [] } = await API.linksByOwner(state.projectId, ownerId);
     const owner = state.membersInProject.find(m => m.id === ownerId);
-    els.linksListTitle.textContent = `${owner ? owner.name : 'Member'} — links`;
+    if (els.linksListTitle) els.linksListTitle.textContent = `${owner ? owner.name : 'Member'} — links`;
 
     els.linksListBody.innerHTML = '';
     if (!items.length) {
@@ -182,11 +196,10 @@
       items.forEach(l => {
         const row = document.createElement('div');
         row.className = 'link-row';
-        // по клику на имя — копируем короткий редирект /go/<id>
         const short = API.shortLink(l.id);
         row.innerHTML = `
-          <div class="link-name" data-url="${short}" title="Click to copy">${l.name}</div>
-          <div>${Number(l.clicks||0).toLocaleString('en-US')} clicks</div>
+          <div class="link-name" data-url="${short}" title="Click to copy">${safe(l.name)}</div>
+          <div>${formatInt(l.clicks)} clicks</div>
         `;
         els.linksListBody.appendChild(row);
       });
@@ -198,7 +211,14 @@
   els.overlay?.addEventListener('click', closeModals);
   $$('[data-close]').forEach(b => b.addEventListener('click', closeModals));
 
-  // клик по кнопке ссылок (на подиуме и в списке)
+  // закрытие модалок по Esc
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && els.overlay?.classList.contains('show')) {
+      closeModals();
+    }
+  });
+
+  // клик по кнопке "показать ссылки" (на подиуме и в списке)
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-links]');
     if (!btn) return;
@@ -218,6 +238,7 @@
     const url = el.dataset.url || '';
     try {
       await navigator.clipboard.writeText(url);
+      toast('Copied', 'ok');
     } catch {
       const ta = document.createElement('textarea');
       ta.value = url;
@@ -225,8 +246,8 @@
       ta.select();
       document.execCommand('copy');
       ta.remove();
+      toast('Copied', 'ok');
     }
-    toast('Copied', 'ok');
   });
 
   // ---- create link flow ----
@@ -238,7 +259,7 @@
     state.membersInProject.forEach(m => {
       const it = document.createElement('div');
       it.className = 'select-item';
-      it.textContent = m.name;
+      it.textContent = safe(m.name);
       it.dataset.id = m.id;
       els.ownerMenu.appendChild(it);
     });
@@ -265,17 +286,22 @@
 
   els.createLinkBtn?.addEventListener('click', async () => {
     if (state.me?.role !== 'creator') return toast('YOU CANNOT EDIT', 'err');
+    if (state.creatingLink) return;
 
-    const name = (els.linkName.value || '').trim();
-    const url  = (els.linkUrl.value  || '').trim();
+    const name = safe(els.linkName.value).trim();
+    const url  = safe(els.linkUrl.value).trim();
     const owner_id = parseInt(els.linkOwner.dataset.id || '0', 10);
     if (!name || !url || !owner_id) return toast('Fill all fields', 'err');
 
     try {
+      state.creatingLink = true;
+      els.createLinkBtn.setAttribute('disabled', 'disabled');
+
       const { id } = await API.linkCreate(state.projectId, { owner_id, name, target_url: url });
       closeModals();
       toast('SUCCESSFULLY CREATED', 'ok');
-      // Обновим лидерборд и KPI (новая ссылка = 0 кликов, но count должен вырасти)
+
+      // Обновим лидерборд и KPI
       await reloadMembersAndLeaderboard();
       renderKPIs();
       renderPodiumAndOthers();
@@ -287,6 +313,17 @@
     } catch (err) {
       console.error(err);
       toast('Error creating link', 'err');
+    } finally {
+      state.creatingLink = false;
+      els.createLinkBtn.removeAttribute('disabled');
+    }
+  });
+
+  // Enter в модалке создания ссылки
+  els.modalLink?.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      els.createLinkBtn?.click();
     }
   });
 
@@ -294,7 +331,6 @@
   els.btnAddMember?.addEventListener('click', async () => {
     if (state.me?.role !== 'creator') return toast('YOU CANNOT EDIT', 'err');
 
-    // загрузим актуальный глобальный список (если пуст)
     if (!state.allMembersCatalog.length) {
       const { items = [] } = await API.membersAll();
       state.allMembersCatalog = items;
@@ -306,7 +342,7 @@
     state.allMembersCatalog.filter(m => !already.has(m.id)).forEach(m => {
       const it = document.createElement('div');
       it.className = 'select-item';
-      it.textContent = m.name;
+      it.textContent = safe(m.name);
       it.dataset.id = m.id;
       els.addMemberMenu.appendChild(it);
     });
@@ -331,25 +367,50 @@
 
   els.addMemberBtn?.addEventListener('click', async () => {
     if (state.me?.role !== 'creator') return toast('YOU CANNOT EDIT', 'err');
+    if (state.addingMember) return;
+
     const member_id = parseInt(els.addMemberInput.dataset.id || '0', 10);
     if (!member_id) return toast('Choose member', 'err');
 
     try {
+      state.addingMember = true;
+      els.addMemberBtn.setAttribute('disabled', 'disabled');
+
       await API.projectAddMember(state.projectId, member_id);
       closeModals();
       toast('SUCCESSFULLY CREATED', 'ok');
+
       await reloadMembersAndLeaderboard();
       renderKPIs();
       renderPodiumAndOthers();
     } catch (err) {
       console.error(err);
       toast('Error adding member', 'err');
+    } finally {
+      state.addingMember = false;
+      els.addMemberBtn.removeAttribute('disabled');
+    }
+  });
+
+  // Enter в модалке добавления участника
+  els.modalAddMember?.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      els.addMemberBtn?.click();
     }
   });
 
   // ---- data loaders ----
   async function loadMe() {
     state.me = await API.me(); // {role}
+    // скрыть/заблокировать экшен-кнопки для viewer
+    if (state.me?.role !== 'creator') {
+      els.btnCreateLink?.setAttribute('disabled', 'disabled');
+      els.btnAddMember?.setAttribute('disabled', 'disabled');
+    } else {
+      els.btnCreateLink?.removeAttribute('disabled');
+      els.btnAddMember?.removeAttribute('disabled');
+    }
   }
 
   async function loadProject() {
@@ -357,13 +418,11 @@
   }
 
   async function loadMembersInProject() {
-    // items: [{id,name,links,clicks}]
     const { items = [] } = await API.projectMembers(state.projectId);
     state.membersInProject = items;
   }
 
   async function loadLeaderboard() {
-    // items: [{id,name,links,clicks}]
     const { items = [] } = await API.projectLeaderboard(state.projectId);
     state.leaderboard = items;
   }
@@ -380,6 +439,7 @@
     }
 
     try {
+      renderSkeleton();
       await loadMe();
       await Promise.all([loadProject(), reloadMembersAndLeaderboard()]);
       renderHeader();

@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Project — Qizil pomada</title>
+
   <link rel="stylesheet" href="{% static 'css/project.css' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
@@ -151,25 +152,19 @@
   <!-- Corner alerts -->
   <div id="corner" class="corner"></div>
 
-
-
-  <!-- Login Overlay (общий попап для всех страниц) -->
-<div id="loginOverlay" class="overlay"></div>
-<div id="loginModal" class="modal modal-white" style="max-width:420px">
-  <h3 class="modal-title dark">ENTER PASSWORD</h3>
-  <input id="loginPassword" class="field" type="password" placeholder="Password">
-  <div class="modal-actions">
-    <button id="loginSubmit" class="btn">ENTER</button>
+  <!-- Login Overlay (единый для всех страниц: username) -->
+  <div id="loginOverlay" class="overlay"></div>
+  <div id="loginModal" class="modal modal-white" style="max-width:420px">
+    <h3 class="modal-title dark">ENTER USERNAME</h3>
+    <input id="loginUsername" class="field" type="text" placeholder="Your name">
+    <div class="modal-actions">
+      <button id="loginSubmit" class="btn">ENTER</button>
+    </div>
   </div>
-</div>
 
-
-
-
-
-  <!-- JS: порядок важен — сначала общий API, потом логика страницы -->
+  <!-- JS: порядок важен — общий API, затем auth и логика страницы -->
   <script src="{% static 'js/api.js' %}"></script>
-    <script src="{% static 'js/auth.js' %}"></script>
+  <script src="{% static 'js/auth.js' %}"></script>
   <script src="{% static 'js/project.js' %}"></script>
 </body>
 </html>
