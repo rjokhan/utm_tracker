@@ -1,19 +1,17 @@
-// assets/js/projects.js
+// static/js/projects.js
 (() => {
   const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-  // ---- DOM ----
   const els = {
     list: $('#projects-list'),
     openBtn: document.querySelector('[data-open-create-project], #btnCreateProject'),
     modal: $('#create-project-modal'),
     form: $('#create-project-form'),
     overlay: $('#overlay'),
-    roleLabel: $('#roleLabel'),
-    roleHint: $('#roleHint'),
   };
 
-  // ---- Utils ----
+  // ---------- Toast ----------
   const toast = (msg, type='error') => {
     const el = document.createElement('div');
     el.className = `toast ${type}`;
@@ -30,12 +28,12 @@
     if (!Number.isFinite(t)) return safe(iso).replaceAll('-', '.');
     const d = new Date(t);
     const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
+    const mm   = String(d.getMonth()+1).padStart(2,'0');
+    const dd   = String(d.getDate()).padStart(2,'0');
     return `${yyyy}.${mm}.${dd}`;
   };
 
-  // ЕДИНЫЕ классы показа
+  // ---------- Modal ----------
   const openModal  = () => {
     els.overlay?.classList.add('open');
     els.modal?.classList.add('open');
@@ -48,7 +46,9 @@
     els.modal?.classList.remove('open');
     document.body.classList.remove('modal-open');
   };
+  els.modal?.addEventListener('click', (e) => e.stopPropagation()); // клики внутри модалки не закрывают её
 
+  // ---------- Skeleton ----------
   const renderSkeleton = () => {
     if (!els.list) return;
     els.list.innerHTML = '';
@@ -64,7 +64,7 @@
     }
   };
 
-  // ---- Render ----
+  // ---------- Render ----------
   async function renderProjects() {
     if (!els.list) return;
     renderSkeleton();
@@ -81,7 +81,7 @@
     }
 
     els.list.innerHTML = '';
-    if (!items.length) {
+    if (!Array.isArray(items) || !items.length) {
       const empty = document.createElement('div');
       empty.className = 'project-row empty';
       empty.textContent = 'No projects yet';
@@ -92,8 +92,8 @@
     items.forEach(p => {
       const row = document.createElement('div');
       row.className = 'project-row';
-      const from = fmtDate(p.date_from || '');
-      const to   = fmtDate(p.date_to || '');
+      const from = fmtDate(p.date_from || p.start_date || p.from || '');
+      const to   = fmtDate(p.date_to   || p.end_date   || p.to   || '');
       row.innerHTML = `
         <div class="project-name">${safe(p.name)}</div>
         <div class="project-dates">${from}${to ? ' – ' + to : ''}</div>
@@ -103,7 +103,7 @@
     });
   }
 
-  // Делегирование: клики по кнопкам проектов
+  // Переход в проект
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.go-btn');
     if (!btn || !els.list?.contains(btn)) return;
@@ -111,15 +111,8 @@
     if (id) location.href = `/project/${id}/`;
   });
 
-  // ---- Create Project flow ----
+  // ---------- Create Project flow ----------
   async function setupCreateProject() {
-    // статус роли в хэдере (если есть метки)
-    if (els.roleLabel) els.roleLabel.textContent = 'Editor';
-    if (els.roleHint)  els.roleHint.textContent  = '(can edit)';
-
-    // кнопка доступна всем
-    els.openBtn?.removeAttribute('disabled');
-
     // открыть модалку
     els.openBtn?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -134,7 +127,7 @@
       if (e.key === 'Escape' && els.modal?.classList.contains('open')) closeModal();
     });
 
-    // Enter внутри модалки — сабмит
+    // Enter в инпутах — сабмит
     els.modal?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -157,27 +150,38 @@
       if (!name) { submitting = false; return toast('Enter project name', 'error'); }
 
       try {
-        await API.createProject({ name, date_from: from, date_to: to });
+        const created = await API.createProject({ name, date_from: from, date_to: to });
         closeModal();
-        toast('SUCCESSFULLY CREATED', 'ok');
+        toast(`SUCCESSFULLY CREATED`, 'ok');
+
+        // Если API вернул id — можно сразу перейти в проект
+        if (created?.id) {
+          // сразу обновим список и подсветим
+          await renderProjects();
+          // необязательный автопереход:
+          // location.href = `/project/${created.id}/`;
+          return;
+        }
+
+        // если id не пришёл — просто перерисуем список
         await renderProjects();
       } catch (err) {
         console.error(err);
-        toast('Error creating project', 'error');
+        toast(err.message || 'Error creating project', 'error');
       } finally {
         submitting = false;
       }
     });
   }
 
-  // ---- Init ----
+  // ---------- Init ----------
   (async () => {
     try {
       await renderProjects();
       await setupCreateProject();
     } catch (e) {
       console.error(e);
-      toast('Failed to load projects', 'error');
+      toast('Init error', 'error');
     }
   })();
 })();
