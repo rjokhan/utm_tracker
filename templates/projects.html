@@ -91,6 +91,83 @@
 
   <!-- Corner alerts -->
   <div id="corner" class="corner"></div>
+<script>
+(() => {
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  const overlay = $('#overlay');
+  const modal   = $('#create-project-modal');
+  const openers = $$('[data-open-create-project], #btnCreateProject');
+  const closers = $$('[data-close]');
+  const form    = $('#create-project-form');
+
+  // Функции открытия/закрытия
+  const openModal = () => {
+    modal.classList.add('open');
+    overlay.classList.add('open');
+    document.body.classList.add('modal-open');
+    // Фокус на первое поле
+    const first = modal.querySelector('input,button,textarea,select');
+    first && first.focus();
+  };
+
+  const closeModal = () => {
+    modal.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.classList.remove('modal-open');
+  };
+
+  // Навешиваем события
+  openers.forEach(btn => btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    openModal();
+  }));
+
+  closers.forEach(btn => btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeModal();
+  }));
+
+  overlay.addEventListener('click', closeModal);
+
+  // Закрытие по Esc
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('open')) {
+      closeModal();
+    }
+  });
+
+  // Заглушка на submit (поменяйте под свою API-логику)
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const payload = {
+      name: fd.get('name')?.trim(),
+      from: fd.get('from') || null,
+      to:   fd.get('to')   || null,
+    };
+
+    if (!payload.name) {
+      alert('Введите название проекта');
+      return;
+    }
+
+    // TODO: отправка на ваш backend
+    // await fetch('/api/projects/', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+
+    // Временный UX: закрыть модал и показать уголок-уведомление, если он есть
+    closeModal();
+    const corner = $('#corner');
+    if (corner) {
+      corner.innerHTML = `<div class="toast ok">Project “${payload.name}” created</div>`;
+      corner.classList.add('show');
+      setTimeout(() => corner.classList.remove('show'), 2500);
+    }
+    form.reset();
+  });
+})();
+</script>
 
   <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
