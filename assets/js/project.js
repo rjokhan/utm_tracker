@@ -372,7 +372,7 @@
 
       await API.projectAddMember(state.projectId, member_id);
       closeModals();
-      toast('SUCCESSFULLY CREATED', 'ok');
+      toast('SUCCESSFULLLY CREATED', 'ok');
 
       await reloadMembersAndLeaderboard();
       renderKPIs();
