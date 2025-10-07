@@ -103,15 +103,26 @@
     </section>
   </main>
 
-  <!-- Login Overlay (общий попап для всех страниц) -->
-  <div id="loginOverlay" class="overlay"></div>
-  <div id="loginModal" class="modal modal-white" style="max-width:420px">
-    <h3 class="modal-title dark">ENTER USERNAME</h3>
-    <input id="loginUsername" class="field" type="text" placeholder="Your name">
-    <div class="modal-actions">
-      <button id="loginSubmit" class="btn">ENTER</button>
-    </div>
+<!-- Login Overlay (ТОЛЬКО на index) -->
+<div id="loginOverlay" class="overlay"></div>
+<div id="loginModal" class="modal modal-white" style="max-width:420px">
+  <h3 class="modal-title dark">ENTER YOUR NAME</h3>
+  <input id="loginName" class="field" type="text" placeholder="Your full name">
+  <div class="modal-actions">
+    <button id="loginSubmit" class="btn">ENTER</button>
   </div>
+</div>
+
+<!-- Logout confirm (использует тот же overlay, что и логин) -->
+<div id="logoutModal" class="modal modal-white" style="max-width:420px">
+  <h3 class="modal-title dark">ЖЕЛАЕТЕ ВЫЙТИ?</h3>
+  <div class="modal-actions">
+    <button id="logoutYes" class="btn">ДА</button>
+    <button id="logoutNo" class="btn ghost" type="button">НЕТ</button>
+  </div>
+</div>
+
+
 
   <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
