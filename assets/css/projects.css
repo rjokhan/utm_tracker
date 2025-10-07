@@ -124,3 +124,106 @@ body.modal-open { overflow: hidden; }  /* блокируем скролл фон
 .alert.err{background:#ef4444}
 .slide{animation:slide 2s forwards}
 @keyframes slide{0%{transform:translateX(0);opacity:1}80%{transform:translateX(12px);opacity:1}100%{transform:translateX(380px);opacity:0}}
+/* ===== PATCH 2025-10-07 — projects page fix (без удаления старого) ===== */
+
+/* 1) Приводим оверлей/модалку к единому поведению (.open).
+      Оставляем совместимость с .show на случай, если где-то живёт старый код. */
+.overlay.open,
+.overlay.show{
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  backdrop-filter: blur(2px);
+}
+.modal.open,
+.modal.show{
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  z-index: 10001 !important;
+}
+/* Цвет и отступы модалки в списке проектов — нейтральные (не розовая панель) */
+#create-project-modal.modal{
+  background: #fff !important;
+  color: var(--txt) !important;
+  padding: 26px !important;
+  border-radius: 24px !important;
+}
+
+/* 2) Карточки списка проектов — у нас класс .project-row, а не .project-card */
+.projects .project-row{
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.06);
+}
+.projects .project-row .project-name{
+  font-weight: 900;
+  font-size: 32px;           /* твоё 36px можно оставить на .project-name выше */
+  letter-spacing: .2px;
+}
+.projects .project-row .project-dates{
+  color: #333;
+  opacity: .9;
+  margin-top: 6px;
+}
+.projects .project-row.empty{
+  background: transparent;
+  color: var(--muted);
+  border: 2px dashed #f7b6c7;
+  border-radius: 16px;
+  padding: 18px 20px;
+}
+
+/* 3) Скелетон (loading…) */
+.projects .project-row.skeleton{
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg,#fbe8ef 25%, #feeef4 37%, #fbe8ef 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+@keyframes shimmer{
+  0%{ background-position: 100% 0 }
+  100%{ background-position: 0 0 }
+}
+
+/* 4) Кнопка перехода в проект */
+.go-btn{
+  -webkit-appearance: none; appearance: none;
+  border: 0; outline: 0;
+  cursor: pointer;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--pinkActive);
+  color: #fff; font-size: 20px; font-weight: 900;
+  box-shadow: 0 10px 18px rgba(0,0,0,.06);
+}
+.go-btn[disabled]{ opacity:.6; cursor: default; }
+
+/* 5) Toast (для projects.js — функция toast()) */
+.toast{
+  position: fixed;
+  right: 16px; bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #222;
+  color: #fff;
+  font: 500 14px/1 Inter, system-ui, -apple-system, Segoe UI, Arial;
+  opacity: 0; transform: translateY(8px);
+  transition: .2s ease;
+  z-index: 10002;
+}
+.toast.show{ opacity: 1; transform: translateY(0); }
+.toast.ok{ background:#16a34a; }
+.toast.error{ background:#dc2626; }
+
+/* 6) Мелочи для формы в модалке */
+#create-project-form .field{ margin-bottom: 10px; }
+#create-project-form .modal-actions{ margin-top: 14px; }
