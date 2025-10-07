@@ -4,10 +4,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard — Qizil pomada</title>
+  <title>All projects — Qizil pomada</title>
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="{% static 'css/index.css' %}">
+  <link rel="stylesheet" href="{% static 'css/projects.css' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
 </head>
@@ -17,16 +16,23 @@
   <aside class="sidebar">
     <div class="brand">
       <a href="{% url 'index' %}">
-        <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada">
+        <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada" />
       </a>
     </div>
 
+    <div class="side-actions">
+      <button class="action" id="btnCreateProject" data-open-create-project>
+        <span>Create<br>New Project</span>
+        <i>+</i>
+      </button>
+    </div>
+
     <nav class="nav">
-      <a class="nav-item active" href="{% url 'index' %}">
+      <a class="nav-item" href="{% url 'index' %}">
         <img src="{% static 'img/ic-dashboard.png' %}" alt="">
         <span>Dashboard</span>
       </a>
-      <a class="nav-item" href="{% url 'projects' %}">
+      <a class="nav-item active" href="{% url 'projects' %}">
         <img src="{% static 'img/ic-projects.png' %}" alt="">
         <span>All projects</span>
       </a>
@@ -46,62 +52,48 @@
   <main class="content">
     <header class="header">
       <div>
-        <h1 class="title">Dashboard</h1>
+        <h1 class="title">All projects</h1>
         <div class="status">Role: <b>Editor</b></div>
       </div>
     </header>
 
-    <!-- Overview -->
-    <section class="section">
-      <h3 class="section-title">Overview</h3>
-      <div class="kpi-row">
-        <div class="kpi kpi-pink">
-          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
-          <div class="kpi-main">
-            <div class="kpi-num" id="kpi-projects"></div>
-            <div class="kpi-sub">total number of projects</div>
-          </div>
-        </div>
-
-        <div class="kpi kpi-blue">
-          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
-          <div class="kpi-main">
-            <div class="kpi-num" id="kpi-links"></div>
-            <div class="kpi-sub">total number of links</div>
-          </div>
-        </div>
-
-        <div class="kpi kpi-green kpi-wide">
-          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
-          <div class="kpi-main">
-            <div class="kpi-num big" id="kpi-clicks"></div>
-            <div class="kpi-sub">total number of clicks</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Leads -->
-    <section class="section">
-      <h3 class="section-title">Leads</h3>
-      <div class="podium" id="podium"></div>
-      <div class="others" id="others">
-        {% for member in others %}
-          <div class="other {% if forloop.last %}last{% endif %}">
-            <div class="col name">
-              <span class="rank">{{ forloop.counter|add:3 }} –</span>
-              <span class="name">{{ member.name }}</span>
-            </div>
-            <div class="col links">{{ member.links }} links</div>
-            <div class="col clicks">{{ member.clicks }} clicks</div>
-          </div>
-        {% endfor %}
-      </div>
+    <section class="projects" id="projects-list">
+      <!-- JS заполнит карточки проектов -->
     </section>
   </main>
 
+  <!-- Overlay + Modal -->
+  <div id="overlay" class="overlay"></div>
+
+  <div id="create-project-modal" class="modal">
+    <h3 class="modal-title">ENTER NAME OF PROJECT</h3>
+    <form id="create-project-form">
+      <input name="name" class="field" placeholder="Project name" autocomplete="off" required>
+
+      <h3 class="modal-title small">ENTER ACTIVE DATES</h3>
+      <div class="grid-2">
+        <div>
+          <div class="hint">from</div>
+          <input name="from" class="field" type="date">
+        </div>
+        <div>
+          <div class="hint">to</div>
+          <input name="to" class="field" type="date">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" type="submit">CREATE</button>
+        <button class="btn ghost" type="button" data-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Corner alerts -->
+  <div id="corner" class="corner"></div>
+
   <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
-  <script src="{% static 'js/index.js' %}"></script>
+  <script src="{% static 'js/projects.js' %}"></script>
 </body>
 </html>

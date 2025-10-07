@@ -5,7 +5,7 @@
   // ---- DOM ----
   const els = {
     list: $('#projects-list'),
-    openBtn: document.querySelector('[data-open-create-project]'),
+    openBtn: document.querySelector('[data-open-create-project], #btnCreateProject'),
     modal: $('#create-project-modal'),
     form: $('#create-project-form'),
     overlay: $('#overlay'),
@@ -27,9 +27,7 @@
   const fmtDate = (iso) => {
     if (!iso) return '';
     const t = Date.parse(iso);
-    if (!Number.isFinite(t)) {
-      return safe(iso).replaceAll('-', '.');
-    }
+    if (!Number.isFinite(t)) return safe(iso).replaceAll('-', '.');
     const d = new Date(t);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth()+1).padStart(2,'0');
@@ -37,8 +35,19 @@
     return `${yyyy}.${mm}.${dd}`;
   };
 
-  const openModal  = () => { els.overlay?.classList.add('show'); els.modal?.classList.add('open'); };
-  const closeModal = ()  => { els.overlay?.classList.remove('show'); els.modal?.classList.remove('open'); };
+  // ЕДИНЫЕ классы показа
+  const openModal  = () => {
+    els.overlay?.classList.add('open');
+    els.modal?.classList.add('open');
+    document.body.classList.add('modal-open');
+    const nameInput = els.form?.querySelector('input[name="name"]');
+    setTimeout(() => nameInput?.focus(), 50);
+  };
+  const closeModal = ()  => {
+    els.overlay?.classList.remove('open');
+    els.modal?.classList.remove('open');
+    document.body.classList.remove('modal-open');
+  };
 
   const renderSkeleton = () => {
     if (!els.list) return;
@@ -102,9 +111,9 @@
     if (id) location.href = `/project/${id}/`;
   });
 
-  // ---- Create Project flow (все — Editor) ----
+  // ---- Create Project flow ----
   async function setupCreateProject() {
-    // статус роли в хэдере (фиксированный)
+    // статус роли в хэдере (если есть метки)
     if (els.roleLabel) els.roleLabel.textContent = 'Editor';
     if (els.roleHint)  els.roleHint.textContent  = '(can edit)';
 
@@ -116,8 +125,6 @@
       e.preventDefault();
       els.form?.reset();
       openModal();
-      const nameInput = els.form?.querySelector('input[name="name"]');
-      setTimeout(() => nameInput?.focus(), 50);
     });
 
     // закрытия
