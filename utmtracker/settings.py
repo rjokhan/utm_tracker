@@ -14,6 +14,10 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
 ]
+# можно расширить через переменную окружения
+_extra = os.environ.get('EXTRA_ALLOWED_HOSTS', '')
+if _extra:
+    ALLOWED_HOSTS += [h.strip() for h in _extra.split(',') if h.strip()]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://89.39.95.53',
@@ -52,18 +56,32 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# === URLS / WSGI ===
+# === URLS / WSGI / ASGI ===
 ROOT_URLCONF = 'utmtracker.urls'
 WSGI_APPLICATION = 'utmtracker.wsgi.application'
 ASGI_APPLICATION = 'utmtracker.asgi.application'
 
 # === DATABASE ===
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# 1) Если задан DATABASE_URL (например, Postgres) — используем его
+# 2) Иначе — SQLite по пути из ENV SQLITE_PATH (по умолчанию: BASE_DIR/db.sqlite3)
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+if DATABASE_URL:
+    try:
+        import dj_database_url  # pip install dj-database-url
+        DATABASES = {
+            'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+        }
+    except Exception:
+        # fallback на SQLite, если dj-database-url не установлен
+        SQLITE_PATH = os.environ.get('SQLITE_PATH', str(BASE_DIR / 'db.sqlite3'))
+        DATABASES = {
+            'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': SQLITE_PATH}
+        }
+else:
+    SQLITE_PATH = os.environ.get('SQLITE_PATH', str(BASE_DIR / 'db.sqlite3'))
+    DATABASES = {
+        'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': SQLITE_PATH}
     }
-}
 
 # === AUTH ===
 AUTH_PASSWORD_VALIDATORS = [
@@ -86,7 +104,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# Выносим media в внешнюю директорию, если задана переменная окружения
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media'))
 
 # === SECURITY / COOKIES ===
 CSRF_COOKIE_SAMESITE = 'None'
@@ -95,6 +114,7 @@ SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 # === CORS ===
 CORS_ALLOW_ALL_ORIGINS = True

@@ -227,3 +227,37 @@ body.modal-open { overflow: hidden; }  /* блокируем скролл фон
 /* 6) Мелочи для формы в модалке */
 #create-project-form .field{ margin-bottom: 10px; }
 #create-project-form .modal-actions{ margin-top: 14px; }
+/* ==== PATCH: date inputs border in Create Project modal ==== */
+
+/* единый вид всех полей в попапе */
+#create-project-modal .field{
+  height: 48px;
+  border: 2px solid #0b0b0b !important;  /* обводка как у текстового */
+  border-radius: 12px;
+  background: #fff;
+  color: #000;
+  padding: 12px 14px;
+}
+
+/* нормализуем нативный date-инпут и даём ему ту же рамку */
+#create-project-modal input[type="date"].field{
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 1;
+}
+
+/* курсор и иконка календаря */
+#create-project-modal input[type="date"].field::-webkit-calendar-picker-indicator{
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+/* фокус */
+#create-project-modal .field:focus{
+  outline: none;
+  border-color: #ff6ea1;
+  box-shadow: 0 0 0 3px rgba(255,110,161,.25);
+}
+
+/* сетка, чтобы поля тянулись на всю ширину своей колонки */
+#create-project-modal .grid-2 .field{ width: 100%; }
