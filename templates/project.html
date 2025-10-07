@@ -6,11 +6,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Project — Qizil pomada</title>
 
+  <!-- CSRF meta (чтобы гарантированно выставлялась cookie) -->
+  <meta name="csrf-token" content="{{ csrf_token }}">
+
   <link rel="stylesheet" href="{% static 'css/project.css' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+
+  <!-- Скрытая форма, чтобы Django выдал csrftoken cookie -->
+  <form style="display:none">{% csrf_token %}</form>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -21,11 +27,11 @@
     </div>
 
     <div class="side-actions">
-      <button class="action" id="btnCreateLink">
+      <button class="action" id="btnCreateLink" type="button" aria-haspopup="dialog" aria-controls="modalLink">
         <span>Create<br>New Link</span>
         <i>+</i>
       </button>
-      <button class="action" id="btnAddMember">
+      <button class="action" id="btnAddMember" type="button" aria-haspopup="dialog" aria-controls="modalAddMember">
         <span>Add Member</span>
         <i>+</i>
       </button>
@@ -101,16 +107,18 @@
     </section>
   </main>
 
-  <!-- Overlays / Modals -->
-  <div id="overlay" class="overlay"></div>
+  <!-- Overlay (единый для всех модалок) -->
+  <div id="overlay" class="overlay" aria-hidden="true"></div>
 
   <!-- Create Link -->
-  <div id="modalLink" class="modal modal-pink">
-    <h3 class="modal-title">ENTER NAME OF LINK</h3>
-    <input id="linkName" class="field" placeholder="Link name">
+  <div id="modalLink" class="modal modal-pink" role="dialog" aria-modal="true" aria-labelledby="modalLinkTitle" aria-describedby="modalLinkDesc">
+    <h3 class="modal-title" id="modalLinkTitle">ENTER NAME OF LINK</h3>
+    <p id="modalLinkDesc" class="sr-only">Create new tracking link for the selected project</p>
+
+    <input id="linkName" class="field" placeholder="Link name" autocomplete="off">
 
     <h3 class="modal-title small">ENTER LINK</h3>
-    <input id="linkUrl" class="field" placeholder="https://...">
+    <input id="linkUrl" class="field" placeholder="https://..." inputmode="url" autocomplete="off">
 
     <h3 class="modal-title small">CHOOSE LINK OWNER</h3>
     <div class="select">
@@ -120,36 +128,38 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn" id="createLinkBtn">CREATE</button>
-      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn" id="createLinkBtn" type="button">CREATE</button>
+      <button class="btn ghost" type="button" data-close>Cancel</button>
     </div>
   </div>
 
   <!-- Add Member to project -->
-  <div id="modalAddMember" class="modal modal-pink">
-    <h3 class="modal-title">CHOOSE MEMBER TO ADD</h3>
+  <div id="modalAddMember" class="modal modal-pink" role="dialog" aria-modal="true" aria-labelledby="modalAddMemberTitle">
+    <h3 class="modal-title" id="modalAddMemberTitle">CHOOSE MEMBER TO ADD</h3>
+
     <div class="select">
       <input id="addMemberInput" class="field select-input" readonly placeholder="Select member">
       <img class="caret" src="{% static 'img/ic-caret.png' %}" alt="">
       <div class="select-menu" id="addMemberMenu"></div>
     </div>
+
     <div class="modal-actions">
-      <button class="btn" id="addMemberBtn">CREATE</button>
-      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn" id="addMemberBtn" type="button">CREATE</button>
+      <button class="btn ghost" type="button" data-close>Cancel</button>
     </div>
   </div>
 
   <!-- Links of member -->
-  <div id="modalLinksList" class="modal modal-white">
+  <div id="modalLinksList" class="modal modal-white" role="dialog" aria-modal="true" aria-labelledby="linksListTitle">
     <h3 class="modal-title dark" id="linksListTitle">Links</h3>
     <div id="linksListBody" class="links-list"></div>
     <div class="modal-actions">
-      <button class="btn ghost dark" data-close>Close</button>
+      <button class="btn ghost dark" type="button" data-close>Close</button>
     </div>
   </div>
 
   <!-- Corner alerts -->
-  <div id="corner" class="corner"></div>
+  <div id="corner" class="corner" aria-live="polite" aria-atomic="true"></div>
 
   <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>

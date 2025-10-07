@@ -20,6 +20,53 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
 }
 .action i{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--pinkActive);color:#fff;font-style:normal;font-size:26px;line-height:1}
 
+
+
+/* === Modal + Overlay fix (stacking & clicks) === */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.42);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;        /* не ловит клики, пока скрыт */
+  z-index: 10000;              /* ниже модалки */
+  transition: opacity .2s ease, visibility .2s ease;
+}
+.overlay.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;        /* кликается для закрытия вокруг модалки */
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(.98);
+  width: min(560px, 92vw);
+  max-height: 86vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;        /* пока скрыта — не ловит клики */
+  z-index: 10001;              /* ВЫШЕ оверлея */
+  transition: transform .2s ease, opacity .2s ease, visibility .2s ease;
+}
+.modal.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;        /* клики доходят до кнопок */
+  transform: translate(-50%, -50%) scale(1);
+}
+
+body.modal-open { overflow: hidden; }  /* блокируем скролл фона */
+
+
+
 .nav{display:flex;flex-direction:column;gap:14px;margin:18px 0}
 .nav-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:14px;text-decoration:none;color:#000;font-weight:800}
 .nav-item img{width:24px;height:24px;filter:brightness(0) saturate(100%)}
