@@ -33,8 +33,13 @@ def _role(request: HttpRequest) -> str:
 
 
 def _require_editor(request: HttpRequest):
-    if _role(request) != "editor":
-        return JsonResponse({"error": "forbidden", "detail": "editor required"}, status=403)
+    """
+    ВАЖНО: проверки роли отключены.
+    Возвращаем None всегда, чтобы разрешить правки всем.
+    Если когда-нибудь захочешь вернуть защиту — раскомментируй нижние строки.
+    """
+    # if _role(request) != "editor":
+    #     return JsonResponse({"error": "forbidden", "detail": "editor required"}, status=403)
     return None
 
 
@@ -93,7 +98,7 @@ def logout(request: HttpRequest):
 
 @require_GET
 def me(request: HttpRequest):
-    """Текущий пользователь/роль из сессии."""
+    """Текущий пользователь/роль из сессии (оставлено для совместимости)."""
     user = _current_user(request)
     if not user:
         return JsonResponse({"auth": False, "role": "anon"})
@@ -288,6 +293,11 @@ def members_list(request: HttpRequest):
 @csrf_exempt
 @require_POST
 def member_create(request: HttpRequest):
+    """
+    Создание глобального участника.
+    JSON: { "name": str } -> { "id": int, "created": bool }
+    (проверка роли отключена)
+    """
     err = _require_editor(request)
     if err:
         return err
