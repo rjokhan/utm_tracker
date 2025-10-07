@@ -6,11 +6,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>All projects — Qizil pomada</title>
 
+  <!-- CSRF meta (чтобы гарантированно выставлялась cookie) -->
+  <meta name="csrf-token" content="{{ csrf_token }}">
+
   <link rel="stylesheet" href="{% static 'css/projects.css' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* projects.css — добавления */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.42);opacity:0;visibility:hidden;pointer-events:none;z-index:10000;transition:opacity .2s,visibility .2s}
+.overlay.open{opacity:1;visibility:visible;pointer-events:auto}
+.modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.98);width:min(560px,92vw);max-height:86vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.2);opacity:0;visibility:hidden;pointer-events:none;z-index:10001;transition:transform .2s,opacity .2s,visibility .2s}
+.modal.open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+body.modal-open{overflow:hidden}
+
+  </style>
 </head>
 <body>
+
+  <!-- Скрытая форма, чтобы Django выдал csrftoken cookie -->
+  <form style="display:none">{% csrf_token %}</form>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -21,7 +37,7 @@
     </div>
 
     <div class="side-actions">
-      <button class="action" id="btnCreateProject" data-open-create-project>
+      <button class="action" id="btnCreateProject" data-open-create-project type="button" aria-haspopup="dialog" aria-controls="create-project-modal">
         <span>Create<br>New Project</span>
         <i>+</i>
       </button>
@@ -63,10 +79,11 @@
   </main>
 
   <!-- Overlay + Modal -->
-  <div id="overlay" class="overlay"></div>
+  <div id="overlay" class="overlay" aria-hidden="true"></div>
 
-  <div id="create-project-modal" class="modal">
-    <h3 class="modal-title">ENTER NAME OF PROJECT</h3>
+  <div id="create-project-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="createTitle">
+    <h3 class="modal-title" id="createTitle">ENTER NAME OF PROJECT</h3>
+
     <form id="create-project-form">
       <input name="name" class="field" placeholder="Project name" autocomplete="off" required>
 
@@ -89,85 +106,8 @@
     </form>
   </div>
 
-  <!-- Corner alerts -->
-  <div id="corner" class="corner"></div>
-<script>
-(() => {
-  const $  = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
-
-  const overlay = $('#overlay');
-  const modal   = $('#create-project-modal');
-  const openers = $$('[data-open-create-project], #btnCreateProject');
-  const closers = $$('[data-close]');
-  const form    = $('#create-project-form');
-
-  // Функции открытия/закрытия
-  const openModal = () => {
-    modal.classList.add('open');
-    overlay.classList.add('open');
-    document.body.classList.add('modal-open');
-    // Фокус на первое поле
-    const first = modal.querySelector('input,button,textarea,select');
-    first && first.focus();
-  };
-
-  const closeModal = () => {
-    modal.classList.remove('open');
-    overlay.classList.remove('open');
-    document.body.classList.remove('modal-open');
-  };
-
-  // Навешиваем события
-  openers.forEach(btn => btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    openModal();
-  }));
-
-  closers.forEach(btn => btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    closeModal();
-  }));
-
-  overlay.addEventListener('click', closeModal);
-
-  // Закрытие по Esc
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal.classList.contains('open')) {
-      closeModal();
-    }
-  });
-
-  // Заглушка на submit (поменяйте под свою API-логику)
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const payload = {
-      name: fd.get('name')?.trim(),
-      from: fd.get('from') || null,
-      to:   fd.get('to')   || null,
-    };
-
-    if (!payload.name) {
-      alert('Введите название проекта');
-      return;
-    }
-
-    // TODO: отправка на ваш backend
-    // await fetch('/api/projects/', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-
-    // Временный UX: закрыть модал и показать уголок-уведомление, если он есть
-    closeModal();
-    const corner = $('#corner');
-    if (corner) {
-      corner.innerHTML = `<div class="toast ok">Project “${payload.name}” created</div>`;
-      corner.classList.add('show');
-      setTimeout(() => corner.classList.remove('show'), 2500);
-    }
-    form.reset();
-  });
-})();
-</script>
+  <!-- Corner alerts / Toast area -->
+  <div id="corner" class="corner" aria-live="polite" aria-atomic="true"></div>
 
   <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
