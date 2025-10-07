@@ -19,16 +19,17 @@
 
   // --- helpers ---
   const open  = () => {
-    els.overlay.classList.add('show');
-    els.modalAdd.classList.add('show');
+    els.overlay?.classList.add('show');
+    els.modalAdd?.classList.add('show');
     setTimeout(() => els.memberName?.focus(), 50);
   };
   const close = ()  => {
-    els.overlay.classList.remove('show');
-    els.modalAdd.classList.remove('show');
+    els.overlay?.classList.remove('show');
+    els.modalAdd?.classList.remove('show');
   };
 
   const toast = (msg, type='ok') => {
+    if (!els.corner) return;
     const el = document.createElement('div');
     el.className = `alert ${type} slide`;
     el.textContent = msg;
@@ -65,7 +66,11 @@
   function renderLoading() {
     if (!els.list) return;
     els.list.innerHTML = `
-      <div class="row skeleton"><div class="idx">#</div><div class="name">Loading…</div><div class="meta">Please wait</div></div>
+      <div class="row skeleton">
+        <div class="idx">#</div>
+        <div class="name">Loading…</div>
+        <div class="meta">Please wait</div>
+      </div>
     `;
   }
 
@@ -109,10 +114,9 @@
   // Создание участника
   async function createMemberFlow() {
     const nm = safe(els.memberName?.value).trim();
-    if (!nm) { toast('Enter name', 'err'); return;
-
-    }
+    if (!nm) { toast('Enter name', 'err'); return; }
     if (creating) return;
+
     creating = true;
     els.btnCreate?.setAttribute('disabled', 'disabled');
 
@@ -130,61 +134,39 @@
     }
   }
 
-  // Инициализация
+  // Инициализация (все — Editor)
   async function init() {
-    // Роль
-    try {
-      const me = await API.me();
-      if (els.roleBadge) {
-        if (me?.role === 'creator') {
-          els.roleBadge.textContent = 'Status | Creator (can edit)';
-        } else if (me?.role === 'viewer') {
-          els.roleBadge.textContent = 'Status | Viewer (only view)';
-        } else {
-          els.roleBadge.textContent = 'Status | —';
-        }
-      }
-
-      // Кнопка «Add New Team Member»
-      els.btnAdd?.addEventListener('click', () => {
-        if (me?.role !== 'creator') {
-          toast('YOU CANNOT EDIT', 'err');
-          return;
-        }
-        if (els.memberName) els.memberName.value = '';
-        open();
-      });
-
-      // Закрытие модалки
-      els.overlay?.addEventListener('click', close);
-      $$('[data-close]').forEach(b => b.addEventListener('click', close));
-
-      // Submit
-      els.btnCreate?.addEventListener('click', () => {
-        if (me?.role !== 'creator') {
-          toast('YOU CANNOT EDIT', 'err');
-          return;
-        }
-        createMemberFlow();
-      });
-
-      // Enter/Escape
-      document.addEventListener('keydown', (ev) => {
-        if (!els.modalAdd?.classList.contains('show')) return;
-        if (ev.key === 'Enter') {
-          ev.preventDefault();
-          if (me?.role === 'creator') createMemberFlow();
-        } else if (ev.key === 'Escape') {
-          close();
-        }
-      });
-
-      // Рендер списка
-      await loadAndRenderMembers();
-    } catch (e) {
-      console.error(e);
-      toast('Failed to load members', 'err');
+    // Бейдж статуса
+    if (els.roleBadge) {
+      els.roleBadge.textContent = 'Status | Editor (can edit)';
     }
+
+    // Кнопка «Add New Team Member» — без проверок роли
+    els.btnAdd?.addEventListener('click', () => {
+      if (els.memberName) els.memberName.value = '';
+      open();
+    });
+
+    // Закрытие модалки
+    els.overlay?.addEventListener('click', close);
+    $$('[data-close]').forEach(b => b.addEventListener('click', close));
+
+    // Submit
+    els.btnCreate?.addEventListener('click', createMemberFlow);
+
+    // Enter/Escape
+    document.addEventListener('keydown', (ev) => {
+      if (!els.modalAdd?.classList.contains('show')) return;
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        createMemberFlow();
+      } else if (ev.key === 'Escape') {
+        close();
+      }
+    });
+
+    // Рендер списка
+    await loadAndRenderMembers();
   }
 
   // go

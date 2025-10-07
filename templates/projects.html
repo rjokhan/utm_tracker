@@ -5,16 +5,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>All projects — Qizil pomada</title>
+
   <link rel="stylesheet" href="{% static 'css/projects.css' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <!-- Sidebar (fixed) -->
+  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="brand">
-      <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada" />
+      <a href="{% url 'index' %}">
+        <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada" />
+      </a>
     </div>
 
     <div class="side-actions">
@@ -50,10 +53,7 @@
     <header class="header">
       <div>
         <h1 class="title">All projects</h1>
-        <div class="status">
-          Status | <b id="roleLabel"></b>
-          <span class="muted" id="roleHint"></span>
-        </div>
+        <div class="status">Role: <b>Editor</b></div>
       </div>
     </header>
 
@@ -92,11 +92,8 @@
   <!-- Corner alerts -->
   <div id="corner" class="corner"></div>
 
-
-
-  <!-- JS: порядок важен — сначала общий API, потом логика страницы -->
+  <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
-  <script src="{% static 'js/auth.js' %}"></script>
   <script src="{% static 'js/projects.js' %}"></script>
 </body>
 </html>

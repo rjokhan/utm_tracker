@@ -28,7 +28,6 @@
     if (!iso) return '';
     const t = Date.parse(iso);
     if (!Number.isFinite(t)) {
-      // fallback на строку YYYY-MM-DD -> YYYY.MM.DD
       return safe(iso).replaceAll('-', '.');
     }
     const d = new Date(t);
@@ -95,7 +94,7 @@
     });
   }
 
-  // Делегирование: клики по кнопкам проектов всегда работают
+  // Делегирование: клики по кнопкам проектов
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.go-btn');
     if (!btn || !els.list?.contains(btn)) return;
@@ -103,36 +102,20 @@
     if (id) location.href = `/project/${id}/`;
   });
 
-  // ---- Create Project flow ----
+  // ---- Create Project flow (все — Editor) ----
   async function setupCreateProject() {
-    const me = await API.me().catch(() => null);
-    const isCreator = me?.role === 'creator';
+    // статус роли в хэдере (фиксированный)
+    if (els.roleLabel) els.roleLabel.textContent = 'Editor';
+    if (els.roleHint)  els.roleHint.textContent  = '(can edit)';
 
-    // статус роли в хэдере
-    if (els.roleLabel && els.roleHint) {
-      if (isCreator) {
-        els.roleLabel.textContent = 'Creator';
-        els.roleHint.textContent  = '(can edit)';
-      } else {
-        els.roleLabel.textContent = 'Viewer';
-        els.roleHint.textContent  = '(only view)';
-      }
-    }
-
-    // дизейбл кнопки для viewer (и убираем фокус/курсор)
-    if (!isCreator) {
-      els.openBtn?.setAttribute('disabled', 'disabled');
-    } else {
-      els.openBtn?.removeAttribute('disabled');
-    }
+    // кнопка доступна всем
+    els.openBtn?.removeAttribute('disabled');
 
     // открыть модалку
     els.openBtn?.addEventListener('click', (e) => {
       e.preventDefault();
-      if (!isCreator) return toast('YOU CANNOT EDIT', 'error');
       els.form?.reset();
       openModal();
-      // автофокус на name
       const nameInput = els.form?.querySelector('input[name="name"]');
       setTimeout(() => nameInput?.focus(), 50);
     });
@@ -156,7 +139,6 @@
     let submitting = false;
     els.form?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!isCreator) return toast('YOU CANNOT EDIT', 'error');
       if (submitting) return;
       submitting = true;
 

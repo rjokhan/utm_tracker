@@ -13,10 +13,12 @@
 </head>
 <body>
 
-  <!-- Sidebar (white, fixed) -->
+  <!-- Sidebar -->
   <aside class="sidebar">
     <div class="brand">
-      <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada">
+      <a href="{% url 'index' %}">
+        <img src="{% static 'img/brand-logo.png' %}" alt="Qizil pomada">
+      </a>
     </div>
 
     <nav class="nav">
@@ -40,19 +42,18 @@
     </div>
   </aside>
 
-  <!-- Content (scrolls) -->
+  <!-- Content -->
   <main class="content">
     <header class="header">
       <div>
         <h1 class="title">Dashboard</h1>
-        <div class="status"><!-- сюда JS вставит роль --></div>
+        <div class="status">Role: <b>Editor</b></div>
       </div>
     </header>
 
     <!-- Overview -->
     <section class="section">
       <h3 class="section-title">Overview</h3>
-
       <div class="kpi-row">
         <div class="kpi kpi-pink">
           <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
@@ -83,11 +84,7 @@
     <!-- Leads -->
     <section class="section">
       <h3 class="section-title">Leads</h3>
-
-      <!-- Podium (динамика из JS) -->
       <div class="podium" id="podium"></div>
-
-      <!-- Others (можно из JS или Django-цикла) -->
       <div class="others" id="others">
         {% for member in others %}
           <div class="other {% if forloop.last %}last{% endif %}">
@@ -103,30 +100,8 @@
     </section>
   </main>
 
-<!-- Login Overlay (ТОЛЬКО на index) -->
-<div id="loginOverlay" class="overlay"></div>
-<div id="loginModal" class="modal modal-white" style="max-width:420px">
-  <h3 class="modal-title dark">ENTER YOUR NAME</h3>
-  <input id="loginName" class="field" type="text" placeholder="Your full name">
-  <div class="modal-actions">
-    <button id="loginSubmit" class="btn">ENTER</button>
-  </div>
-</div>
-
-<!-- Logout confirm (использует тот же overlay, что и логин) -->
-<div id="logoutModal" class="modal modal-white" style="max-width:420px">
-  <h3 class="modal-title dark">ЖЕЛАЕТЕ ВЫЙТИ?</h3>
-  <div class="modal-actions">
-    <button id="logoutYes" class="btn">ДА</button>
-    <button id="logoutNo" class="btn ghost" type="button">НЕТ</button>
-  </div>
-</div>
-
-
-
   <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
-  <script src="{% static 'js/auth.js' %}"></script>
   <script src="{% static 'js/index.js' %}"></script>
 </body>
 </html>

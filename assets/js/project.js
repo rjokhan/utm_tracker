@@ -39,16 +39,17 @@
 
   // ---- helpers ----
   const toast = (msg, type='ok') => {
+    if (!els.corner) return;
     const el = document.createElement('div');
     el.className = `alert ${type} slide`;
     el.textContent = msg;
-    els.corner?.appendChild(el);
+    els.corner.appendChild(el);
     setTimeout(() => el.remove(), 2400);
   };
 
-  const openModal  = (m) => { els.overlay.classList.add('show'); m.classList.add('show'); };
+  const openModal  = (m) => { els.overlay?.classList.add('show'); m?.classList.add('show'); };
   const closeModals = () => {
-    els.overlay.classList.remove('show');
+    els.overlay?.classList.remove('show');
     $$('.modal.show').forEach(m => m.classList.remove('show'));
     els.ownerMenu?.classList.remove('show');
     els.addMemberMenu?.classList.remove('show');
@@ -73,8 +74,7 @@
 
   // ---- state ----
   const state = {
-    me: null,                 // {role}
-    projectId: null,          // number
+    projectId: null,
     project: null,            // {id,name,date_from,date_to}
     leaderboard: [],          // [{id,name,links,clicks}]
     membersInProject: [],     // [{id,name,links,clicks}]
@@ -252,8 +252,6 @@
 
   // ---- create link flow ----
   els.btnCreateLink?.addEventListener('click', async () => {
-    if (state.me?.role !== 'creator') return toast('YOU CANNOT EDIT', 'err');
-
     // заполнить список владельцев (участников проекта)
     els.ownerMenu.innerHTML = '';
     state.membersInProject.forEach(m => {
@@ -273,7 +271,7 @@
   });
 
   els.linkOwner?.addEventListener('click', () => {
-    els.ownerMenu.classList.toggle('show');
+    els.ownerMenu?.classList.toggle('show');
   });
 
   els.ownerMenu?.addEventListener('click', (e) => {
@@ -285,7 +283,6 @@
   });
 
   els.createLinkBtn?.addEventListener('click', async () => {
-    if (state.me?.role !== 'creator') return toast('YOU CANNOT EDIT', 'err');
     if (state.creatingLink) return;
 
     const name = safe(els.linkName.value).trim();
@@ -329,8 +326,6 @@
 
   // ---- add member to project ----
   els.btnAddMember?.addEventListener('click', async () => {
-    if (state.me?.role !== 'creator') return toast('YOU CANNOT EDIT', 'err');
-
     if (!state.allMembersCatalog.length) {
       const { items = [] } = await API.membersAll();
       state.allMembersCatalog = items;
@@ -354,7 +349,7 @@
   });
 
   els.addMemberInput?.addEventListener('click', () => {
-    els.addMemberMenu.classList.toggle('show');
+    els.addMemberMenu?.classList.toggle('show');
   });
 
   els.addMemberMenu?.addEventListener('click', (e) => {
@@ -366,7 +361,6 @@
   });
 
   els.addMemberBtn?.addEventListener('click', async () => {
-    if (state.me?.role !== 'creator') return toast('YOU CANNOT EDIT', 'err');
     if (state.addingMember) return;
 
     const member_id = parseInt(els.addMemberInput.dataset.id || '0', 10);
@@ -401,18 +395,6 @@
   });
 
   // ---- data loaders ----
-  async function loadMe() {
-    state.me = await API.me(); // {role}
-    // скрыть/заблокировать экшен-кнопки для viewer
-    if (state.me?.role !== 'creator') {
-      els.btnCreateLink?.setAttribute('disabled', 'disabled');
-      els.btnAddMember?.setAttribute('disabled', 'disabled');
-    } else {
-      els.btnCreateLink?.removeAttribute('disabled');
-      els.btnAddMember?.removeAttribute('disabled');
-    }
-  }
-
   async function loadProject() {
     state.project = await API.projectDetail(state.projectId);
   }
@@ -440,7 +422,10 @@
 
     try {
       renderSkeleton();
-      await loadMe();
+      // В режиме без авторизации всегда включаем действия
+      els.btnCreateLink?.removeAttribute('disabled');
+      els.btnAddMember?.removeAttribute('disabled');
+
       await Promise.all([loadProject(), reloadMembersAndLeaderboard()]);
       renderHeader();
       renderKPIs();
