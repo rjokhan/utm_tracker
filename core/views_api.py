@@ -1,46 +1,105 @@
-# core/views_api.py
-import json
+# core/views.py
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.db import IntegrityError
-from .models import Member
+from django.db.models import Count
+from .models import Project, Member, Link, ClickEvent
 
-def _member_public_dict(m: Member):
-    return {
-        "id": m.id,
-        "name": m.name,
-        "is_editor": m.is_editor,
-        "active_projects": m.projects.count(),
-        "links": m.links.count(),
-        "clicks": sum(l.clicks for l in m.links.all()),
-        "created_at": m.created_at.isoformat(),
+
+# ---------- Страницы ----------
+
+def index_page(request):
+    """Главная панель (Dashboard)."""
+    return render(request, "index.html")
+
+
+def projects_page(request):
+    """Список всех проектов."""
+    return render(request, "projects.html")
+
+
+def project_page(request, pk):
+    """Страница конкретного проекта."""
+    project = get_object_or_404(Project, pk=pk)
+    return render(request, "project.html", {"project": project})
+
+
+def members_page(request):
+    """Список участников."""
+    return render(request, "members.html")
+
+
+# ---------- API: Клики и статистика ----------
+
+def track_click(request):
+    """
+    Регистрирует клик по ссылке.
+    В URL ожидается ?link=<id>&user=<user_key>
+    """
+    link_id = request.GET.get("link")
+    user_key = request.GET.get("user")
+
+    if not link_id:
+        return JsonResponse({"detail": "Missing link id"}, status=400)
+
+    try:
+        link = Link.objects.get(pk=link_id)
+    except Link.DoesNotExist:
+        return JsonResponse({"detail": "Link not found"}, status=404)
+
+    # Создаём событие
+    ClickEvent.objects.create(link=link, user_key=user_key or None)
+    return JsonResponse({"ok": True})
+
+
+def link_stats(request, link_id: int):
+    """
+    Возвращает статистику по одной ссылке:
+    - всего кликов
+    - уникальных пользователей
+    """
+    qs = ClickEvent.objects.filter(link_id=link_id)
+    total_clicks = qs.count()
+    unique_users = qs.values("user_key").distinct().count()
+    return JsonResponse({
+        "link_id": link_id,
+        "total_clicks": total_clicks,
+        "unique_users": unique_users,
+    })
+
+
+def project_stats(request):
+    """
+    Глобальная статистика по всем проектам (для Dashboard):
+    - общее количество проектов
+    - количество ссылок
+    - суммарные клики
+    - количество уникальных пользователей
+    """
+    total_projects = Project.objects.count()
+    total_links = Link.objects.count()
+    total_clicks = ClickEvent.objects.count()
+    unique_users = ClickEvent.objects.values("user_key").distinct().count()
+
+    data = {
+        "total_projects": total_projects,
+        "total_links": total_links,
+        "total_clicks": total_clicks,
+        "unique_users": unique_users,
     }
+    return JsonResponse(data)
 
-def members_list(request):
-    if request.method != "GET":
-        return JsonResponse({"detail": "Method not allowed"}, status=405)
-    qs = Member.objects.all().order_by("created_at")
-    items = [_member_public_dict(m) for m in qs]
-    return JsonResponse({"items": items})
 
-@csrf_exempt
-def member_create(request):
-    if request.method != "POST":
-        return JsonResponse({"detail": "Method not allowed"}, status=405)
-    try:
-        data = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "Invalid JSON"}, status=400)
-
-    name = (data.get("name") or "").strip()
-    if not name:
-        return JsonResponse({"detail": "Empty name"}, status=400)
-
-    try:
-        member, created = Member.objects.get_or_create(name=name)
-        return JsonResponse({"id": member.id, "created": created})
-    except IntegrityError:
-        member = Member.objects.filter(name=name).first()
-        return JsonResponse({"id": member.id, "created": False})
-    except Exception as e:
-        return JsonResponse({"detail": str(e)}, status=500)
+# ✅ Новый эндпоинт — статистика по одному конкретному проекту
+def project_stats_one(request, project_id: int):
+    """
+    Возвращает статистику по конкретному проекту:
+    - количество кликов
+    - количество уникальных пользователей (по user_key)
+    """
+    qs = ClickEvent.objects.filter(link__project_id=project_id)
+    data = {
+        "project_id": project_id,
+        "total_clicks": qs.count(),
+        "unique_users": qs.values("user_key").distinct().count(),
+    }
+    return JsonResponse(data)
