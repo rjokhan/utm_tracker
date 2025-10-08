@@ -4,12 +4,15 @@
   --txt:#0b0b0b;
   --muted:#7a7a7a;
 
-  --kpiPink:#ffd6e1;
-  --kpiBlue:#dee6ff;
-  --kpiGreen:#dff6d7;
+  --kpiPink:#ffd6e1;         /* projects */
+  --kpiBlue:#dee6ff;         /* links */
+  --kpiGreen:#dff6d7;        /* clicks */
+
+  /* новый цвет для unique users */
+  --kpiAmber:#fde8b2;        /* мягкий амбровый фон карточки */
+  --kpiAmberAccent:#e0b23a;  /* тёмный фон под иконку */
 
   --shadow: 0 4px 20px rgba(0,0,0,.08);
-  --panel-bg: rgba(255, 230, 175, 0.92);
 }
 
 *{box-sizing:border-box}
@@ -31,7 +34,7 @@ body{
   display:flex;align-items:center;gap:14px;text-decoration:none;
   padding:12px 14px;border-radius:14px;color:#000;font-weight:800;
 }
-.nav-item img{width:24px;height:24px;object-fit:contain;filter:brightness(0) saturate(100%);} /* неактивные чёрные */
+.nav-item img{width:24px;height:24px;object-fit:contain;filter:brightness(0) saturate(100%);}
 .nav-item.active{background:#ffe4eb;color:var(--pinkActive)}
 .nav-item.active img{filter:none}
 
@@ -41,7 +44,7 @@ body{
 
 .content{
   margin-left:300px;min-height:100vh;padding:36px 44px 60px;background:#fff;
-  height:100vh;overflow:auto; /* скролл только контента, сайдбар неподвижен */
+  height:100vh;overflow:auto;
 }
 
 /* --- header --- */
@@ -55,32 +58,40 @@ body{
 .section-title{margin:0 0 12px 0;font-weight:800;font-size:18px}
 
 /* --- KPI --- */
+/* по 2 карточки в ряд; ширины эластичные */
 .kpi-row{
-  display:grid;grid-template-columns:360px 360px 520px;gap:22px;align-items:stretch;
-}
-.kpi {
   display:grid;
-  grid-template-columns:90px 1fr;
-  gap:18px;
-  padding:18px;
-  border-radius:20px;
-  box-shadow:var(--shadow);
-  background:var(--panel-bg); /* ✅ новый фон */
-  backdrop-filter:blur(6px);  /* лёгкий гласс-эффект */
+  grid-template-columns:repeat(2, minmax(340px, 1fr));
+  gap:22px;
+  align-items:stretch;
 }
-
-.kpi-pink{background:var(--kpiPink)}
-.kpi-blue{background:var(--kpiBlue)}
-.kpi-green{background:var(--kpiGreen)}
-
+.kpi{
+  display:grid;grid-template-columns:90px 1fr;gap:18px;
+  padding:18px;border-radius:20px;box-shadow:var(--shadow);
+  background:#fff; /* базовый непрозрачный фон, чтобы и чёрный, и белый выглядели контрастно */
+}
 .kpi-icon{
   display:grid;place-items:center;border-radius:16px;padding:10px;
 }
-.kpi-pink .kpi-icon  { background:#f86491; }  /* цвет квадрата по карточке */
-.kpi-blue .kpi-icon  { background:#718cfa; }
-.kpi-green .kpi-icon { background:#87d47d; }
-.kpi-icon img{width:46px;height:46px;opacity:.96}
+.kpi-icon img{width:46px;height:46px;opacity:.98}
 
+/* цветовые темы карточек */
+.kpi-pink{background:var(--kpiPink)}
+.kpi-pink .kpi-icon{background:#f86491}     /* тёмнее фона, чтобы белая иконка читалась */
+
+.kpi-blue{background:var(--kpiBlue)}
+.kpi-blue .kpi-icon{background:#718cfa}
+
+.kpi-green{background:var(--kpiGreen)}
+.kpi-green .kpi-icon{background:#87d47d}
+
+/* новая карточка для unique users */
+.kpi-amber{background:var(--kpiAmber)}
+.kpi-amber .kpi-icon{background:var(--kpiAmberAccent)}
+.kpi-amber .kpi-num{color:#0b0b0b} /* жирное чёрное число */
+.kpi-amber .kpi-sub{color:#222}     /* подпись тёмная — хорошая читаемость */
+
+/* общий контент карточек */
 .kpi-main{display:flex;flex-direction:column;justify-content:center}
 .kpi-num{font-weight:900;font-size:40px;line-height:1}
 .kpi-num.big{font-size:48px}
@@ -107,25 +118,23 @@ body{
 
 /* --- Others (с 4 места) --- */
 .others{margin-top:18px;display:flex;flex-direction:column;gap:14px;max-width:1120px}
-
-/* общий ряд: три колонки — имя / links / klicks */
 .other{
   display:grid;grid-template-columns: 1fr 140px 140px;
   align-items:center;gap:16px;padding:16px 18px;border-radius:16px;
-  background:linear-gradient(90deg,#ffe9dd 0%, #ffffff 100%); /* базовый градиент */
+  background:linear-gradient(90deg,#ffe9dd 0%, #ffffff 100%);
 }
 .other .col.name{font-weight:900;display:flex;gap:8px;align-items:center}
 .other .col.links, .other .col.clicks{justify-self:end;color:#222}
-
-/* последний — аутсайдер */
 .other.last{
   background:linear-gradient(90deg,#ff9f9f 0%, #ffffff 100%);
   border:1px solid rgba(255,80,80,.25);
 }
 
 /* адаптив */
+@media (max-width: 1100px){
+  .kpi-row{grid-template-columns:1fr}
+}
 @media (max-width: 1280px){
-  .kpi-row{grid-template-columns:1fr;gap:14px}
   .content{padding:28px}
   .title{font-size:52px}
 }
