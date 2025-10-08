@@ -10,6 +10,7 @@
     kMembers: $('#kpiMembers'),
     kLinks:   $('#kpiLinks'),
     kClicks:  $('#kpiClicks'),
+    kUniques: $('#kpiUniques'), // 👈 ДОБАВЛЕНО: KPI уникальных пользователей
     podium:   $('#podium'),
     others:   $('#others'),
     corner:   $('#corner'),
@@ -107,7 +108,30 @@
 
     if (els.kMembers) els.kMembers.textContent = formatInt(membersCount);
     if (els.kLinks)   els.kLinks.textContent   = formatInt(linksCount);
-    if (els.kClicks)  els.kClicks.textContent  = formatInt(clicksSum);
+    if (els.kClicks)  els.kClicks.textContent  = formatInt(clicksSum); // локальная сумма (может быть перекрыта loadProjectStats)
+  }
+
+  // 👇 ДОБАВЛЕНО: точная статистика проекта (клики + уникальные)
+  async function loadProjectStats() {
+    try {
+      // Требуется эндпоинт: GET /api/stats/project/<project_id>/
+      // Возвращает: { total_clicks: int, unique_users: int }
+      const r = await fetch(`/api/stats/project/${state.projectId}/`, { credentials: 'same-origin' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+
+      if (els.kUniques && typeof d.unique_users !== 'undefined') {
+        els.kUniques.textContent = formatInt(d.unique_users);
+      }
+      if (els.kClicks && typeof d.total_clicks !== 'undefined') {
+        // Перекрываем локальную сумму кликов точным значением с бэкенда
+        els.kClicks.textContent = formatInt(d.total_clicks);
+      }
+    } catch (e) {
+      // Молча фолбэк: показываем локальные KPI, а уникальные остаются '—', если элемент есть
+      if (els.kUniques && !els.kUniques.textContent) els.kUniques.textContent = '—';
+      // console.warn('Project stats not available', e);
+    }
   }
 
   function renderSkeleton() {
@@ -303,6 +327,9 @@
       renderKPIs();
       renderPodiumAndOthers();
 
+      // 👇 Обновим точные проектные метрики (клики/уники)
+      await loadProjectStats();
+
       // Показать короткую ссылку
       const short = API.shortLink(id);
       try { await navigator.clipboard.writeText(short); toast('Short URL copied', 'ok'); }
@@ -377,6 +404,9 @@
       await reloadMembersAndLeaderboard();
       renderKPIs();
       renderPodiumAndOthers();
+
+      // 👇 После изменения состава проекта обновим точные метрики
+      await loadProjectStats();
     } catch (err) {
       console.error(err);
       toast('Error adding member', 'err');
@@ -428,8 +458,9 @@
 
       await Promise.all([loadProject(), reloadMembersAndLeaderboard()]);
       renderHeader();
-      renderKPIs();
+      renderKPIs();            // локальные суммы
       renderPodiumAndOthers();
+      await loadProjectStats(); // 👈 точные клики и уникальные из бэкенда
     } catch (err) {
       console.error(err);
       toast('Failed to load project', 'err');

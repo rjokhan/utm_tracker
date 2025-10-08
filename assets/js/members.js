@@ -12,6 +12,10 @@
     memberName:  $('#memberName'),
     btnAdd:      $('#btnAddMember'),
     btnCreate:   $('#createMember'),
+    // KPI элементы
+    kTeam:       $('#team-members'),
+    kClicks:     $('#team-clicks'),
+    kUniques:    $('#team-uniques'),
   };
 
   // --- state ---
@@ -43,6 +47,22 @@
   };
 
   const safe = (v) => (v ?? '').toString();
+
+  // ---------- KPI section ----------
+  async function loadTeamStats() {
+    try {
+      const res = await fetch('/api/stats/project/', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('stats failed');
+      const data = await res.json();
+
+      if (els.kClicks)  els.kClicks.textContent  = formatInt(data.total_clicks ?? 0);
+      if (els.kUniques) els.kUniques.textContent = formatInt(data.unique_users ?? 0);
+    } catch (e) {
+      console.warn('Failed to load stats', e);
+      if (els.kClicks)  els.kClicks.textContent  = '—';
+      if (els.kUniques) els.kUniques.textContent = '—';
+    }
+  }
 
   // Рендер строки участника
   function renderRow(idx, item) {
@@ -103,12 +123,15 @@
       empty.className = 'row empty';
       empty.textContent = 'No members yet';
       els.list.appendChild(empty);
+      if (els.kTeam) els.kTeam.textContent = '0';
       return;
     }
 
     sorted.forEach((m, i) => {
       els.list.appendChild(renderRow(i + 1, m));
     });
+
+    if (els.kTeam) els.kTeam.textContent = formatInt(sorted.length);
   }
 
   // Создание участника
@@ -125,6 +148,7 @@
       close();
       toast('SUCCESSFULLY CREATED', 'ok');
       await loadAndRenderMembers();
+      await loadTeamStats(); // обновить KPI
     } catch (e) {
       console.error(e);
       toast('Error creating member', 'err');
@@ -141,7 +165,7 @@
       els.roleBadge.textContent = 'Status | Editor (can edit)';
     }
 
-    // Кнопка «Add New Team Member» — без проверок роли
+    // Кнопка «Add New Team Member»
     els.btnAdd?.addEventListener('click', () => {
       if (els.memberName) els.memberName.value = '';
       open();
@@ -165,8 +189,9 @@
       }
     });
 
-    // Рендер списка
+    // Рендер списка и KPI
     await loadAndRenderMembers();
+    await loadTeamStats();
   }
 
   // go

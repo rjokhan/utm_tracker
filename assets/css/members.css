@@ -45,6 +45,14 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
   background:linear-gradient(90deg,#ffe9dd 0%, #ffffff 100%);
  
 }
+
+
+.kpi-violet {
+  background: #f0e2ff;
+  color: #4b1f74;
+}
+
+
 .idx{font-weight:900}
 .name{font-weight:900}
 .meta{color:#1f2937}

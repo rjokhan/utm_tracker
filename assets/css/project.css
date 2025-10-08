@@ -162,3 +162,23 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
   .content{padding:28px}
   .project-name{font-size:34px}
 }
+
+/* === Additions for Unique Users KPI (append at the end) === */
+:root{
+  --kpiViolet:#efe2ff; /* нежно-фиолетовый фон KPI */
+}
+
+/* Фиолетовая KPI-карточка */
+.kpi-violet{background:var(--kpiViolet)}
+.kpi-violet .kpi-icon{background:#8b6cfb} /* фиолетовый бейдж иконки */
+
+/* Четыре KPI в ряд на больших экранах:
+   [members] [links] [unique users] [clicks-wide] */
+@media (min-width:1281px){
+  .kpi-row{
+    grid-template-columns: 300px 300px 300px 520px; /* 4 колонки */
+    gap:22px;
+  }
+}
+
+/* На мобильных всё уже настроено — одна колонка (ваше правило ниже 1280px) */

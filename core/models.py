@@ -1,4 +1,3 @@
-# core/models.py
 from django.db import models
 
 
@@ -55,6 +54,10 @@ class ProjectMember(models.Model):
 
 
 class Link(models.Model):
+    """
+    Ссылка в рамках проекта. Хранит базовую статистику.
+    Подробные клики записываются в ClickEvent.
+    """
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='links')
     owner   = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='links')
     name = models.CharField(max_length=200)
@@ -64,3 +67,31 @@ class Link(models.Model):
 
     def __str__(self) -> str:
         return f'{self.name} ({self.owner})'
+
+    @property
+    def unique_clicks(self) -> int:
+        """Количество уникальных пользователей, кликнувших по ссылке"""
+        return self.click_events.values('user_key').distinct().count()
+
+
+class ClickEvent(models.Model):
+    """
+    Отдельное событие клика по ссылке.
+    Сохраняет user_key, IP и User-Agent, чтобы считать total/unique клики.
+    """
+    link = models.ForeignKey(Link, on_delete=models.CASCADE, related_name='click_events')
+    user_key = models.CharField(max_length=64, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+    ua = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['link', 'user_key']),
+            models.Index(fields=['created_at']),
+        ]
+        verbose_name = "Клик"
+        verbose_name_plural = "Клики"
+
+    def __str__(self) -> str:
+        return f'{self.link.name} — {self.user_key}'

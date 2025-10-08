@@ -10,20 +10,47 @@
       statusEl.innerHTML = `Status | <b>${isEditor ? 'Editor' : 'Viewer'}</b> <span class="muted">${isEditor ? '(can edit)' : '(only view)'}</span>`;
     }
 
-    // --- KPI ---
-    const s = await API.summary();
+    // --- KPI из вашего бэкенда (старый summary) ---
+    const s = (typeof API?.summary === 'function') ? await API.summary() : null;
+
     const kpis = [
       { sel: '.kpi.kpi-pink .kpi-num',  val: s?.projects },
       { sel: '.kpi.kpi-blue .kpi-num',  val: s?.links },
-      { sel: '.kpi.kpi-green .kpi-num', val: s?.clicks },
+      { sel: '.kpi.kpi-green .kpi-num', val: s?.clicks }, // общий счётчик кликов из summary, если есть
     ];
     kpis.forEach(k => {
       const el = document.querySelector(k.sel);
       if (el) el.textContent = (k.val ?? 0);
     });
 
+    // --- ДОБАВЛЕНО: статы по проекту (total_clicks, unique_users) ---
+    // Берём уникальных и при желании обновляем total_clicks из нового API
+    async function fetchJSON(url) {
+      const r = await fetch(url, { credentials: 'same-origin' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }
+
+    try {
+      const stats = await fetchJSON('/api/stats/project/');
+      // уникальные пользователи
+      const uniEl = document.querySelector('.kpi.kpi-violet .kpi-num');
+      if (uniEl) uniEl.textContent = (stats?.unique_users ?? 0);
+
+      // если хотите, чтобы "total number of clicks" брался именно из нового API:
+      // (оставьте как есть, если ваш summary уже правильно считает клики)
+      const clicksEl = document.querySelector('.kpi.kpi-green .kpi-num');
+      if (clicksEl && typeof stats?.total_clicks === 'number') {
+        clicksEl.textContent = stats.total_clicks;
+      }
+    } catch (_) {
+      // тихо игнорируем, чтобы дашборд не ломался без /api/stats/project/
+      const uniEl = document.querySelector('.kpi.kpi-violet .kpi-num');
+      if (uniEl) uniEl.textContent = '—';
+    }
+
     // --- Лидеры ---
-    const res = await API.globalLeaderboard();
+    const res = (typeof API?.globalLeaderboard === 'function') ? await API.globalLeaderboard() : null;
     const leaders = Array.isArray(res?.items) ? res.items : [];
 
     const podium = document.getElementById('podium');

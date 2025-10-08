@@ -52,34 +52,44 @@
     </header>
 
     <!-- Overview -->
-    <section class="section">
-      <h3 class="section-title">Overview</h3>
-      <div class="kpi-row">
-        <div class="kpi kpi-pink">
-          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
-          <div class="kpi-main">
-            <div class="kpi-num" id="kpi-projects"></div>
-            <div class="kpi-sub">total number of projects</div>
-          </div>
-        </div>
-
-        <div class="kpi kpi-blue">
-          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
-          <div class="kpi-main">
-            <div class="kpi-num" id="kpi-links"></div>
-            <div class="kpi-sub">total number of links</div>
-          </div>
-        </div>
-
-        <div class="kpi kpi-green kpi-wide">
-          <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
-          <div class="kpi-main">
-            <div class="kpi-num big" id="kpi-clicks"></div>
-            <div class="kpi-sub">total number of clicks</div>
-          </div>
-        </div>
+<section class="section">
+  <h3 class="section-title">Overview</h3>
+  <div class="kpi-row">
+    <div class="kpi kpi-pink">
+      <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+      <div class="kpi-main">
+        <div class="kpi-num" id="kpi-projects"></div>
+        <div class="kpi-sub">total number of projects</div>
       </div>
-    </section>
+    </div>
+
+    <div class="kpi kpi-blue">
+      <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+      <div class="kpi-main">
+        <div class="kpi-num" id="kpi-links"></div>
+        <div class="kpi-sub">total number of links</div>
+      </div>
+    </div>
+
+    <!-- 👇 Новая карточка уникальных пользователей -->
+    <div class="kpi kpi-violet">
+      <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+      <div class="kpi-main">
+        <div class="kpi-num" id="kpi-uniques"></div>
+        <div class="kpi-sub">unique users (all links)</div>
+      </div>
+    </div>
+
+    <div class="kpi kpi-green kpi-wide">
+      <div class="kpi-icon"><img src="{% static 'img/ic-chart.png' %}" alt=""></div>
+      <div class="kpi-main">
+        <div class="kpi-num big" id="kpi-clicks"></div>
+        <div class="kpi-sub">total number of clicks</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
     <!-- Leads -->
     <section class="section">
