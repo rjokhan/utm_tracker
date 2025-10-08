@@ -9,7 +9,7 @@
   --kpiGreen:#dff6d7;
 
   --shadow: 0 4px 20px rgba(0,0,0,.08);
-  --panel-bg: rgba(255,255,255,0.92);
+  --panel-bg: rgba(255, 230, 175, 0.92);
 }
 
 *{box-sizing:border-box}
