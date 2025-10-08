@@ -4,15 +4,15 @@
   --txt:#0b0b0b;
   --muted:#7a7a7a;
 
-  --kpiPink:#ffd6e1;         /* projects */
-  --kpiBlue:#dee6ff;         /* links */
-  --kpiGreen:#dff6d7;        /* clicks */
+  --kpiPink:#ffd6e1;
+  --kpiBlue:#dee6ff;
+  --kpiGreen:#dff6d7;
 
-  /* новый цвет для unique users */
-  --kpiAmber:#fde8b2;        /* мягкий амбровый фон карточки */
-  --kpiAmberAccent:#e0b23a;  /* тёмный фон под иконку */
+  /* новый яркий блок */
+  --kpiAmber:#f8d98b;          /* насыщенный мягкий фон */
+  --kpiAmberAccent:#e0aa29;    /* подложка под иконку */
 
-  --shadow: 0 4px 20px rgba(0,0,0,.08);
+  --shadow:0 4px 20px rgba(0,0,0,.08);
 }
 
 *{box-sizing:border-box}
@@ -53,12 +53,7 @@ body{
 .status{margin-top:8px;color:#9a9a9a}
 .muted{color:#9a9a9a}
 
-/* --- sections --- */
-.section{margin:22px 0}
-.section-title{margin:0 0 12px 0;font-weight:800;font-size:18px}
-
 /* --- KPI --- */
-/* по 2 карточки в ряд; ширины эластичные */
 .kpi-row{
   display:grid;
   grid-template-columns:repeat(2, minmax(340px, 1fr));
@@ -66,36 +61,51 @@ body{
   align-items:stretch;
 }
 .kpi{
-  display:grid;grid-template-columns:90px 1fr;gap:18px;
-  padding:18px;border-radius:20px;box-shadow:var(--shadow);
-  background:#fff; /* базовый непрозрачный фон, чтобы и чёрный, и белый выглядели контрастно */
+  display:grid;
+  grid-template-columns:90px 1fr;
+  gap:18px;
+  padding:18px;
+  border-radius:20px;
+  box-shadow:var(--shadow);
+  color:#000;
 }
 .kpi-icon{
   display:grid;place-items:center;border-radius:16px;padding:10px;
 }
 .kpi-icon img{width:46px;height:46px;opacity:.98}
 
-/* цветовые темы карточек */
+/* цветовые темы */
 .kpi-pink{background:var(--kpiPink)}
-.kpi-pink .kpi-icon{background:#f86491}     /* тёмнее фона, чтобы белая иконка читалась */
+.kpi-pink .kpi-icon{background:#f86491;}
 
 .kpi-blue{background:var(--kpiBlue)}
-.kpi-blue .kpi-icon{background:#718cfa}
+.kpi-blue .kpi-icon{background:#718cfa;}
 
 .kpi-green{background:var(--kpiGreen)}
-.kpi-green .kpi-icon{background:#87d47d}
+.kpi-green .kpi-icon{background:#65b562;}
 
-/* новая карточка для unique users */
-.kpi-amber{background:var(--kpiAmber)}
-.kpi-amber .kpi-icon{background:var(--kpiAmberAccent)}
-.kpi-amber .kpi-num{color:#0b0b0b} /* жирное чёрное число */
-.kpi-amber .kpi-sub{color:#222}     /* подпись тёмная — хорошая читаемость */
+/* новый оранжево-золотой */
+.kpi-amber{
+  background:var(--kpiAmber);
+  color:#222;               /* текст читается */
+}
+.kpi-amber .kpi-icon{
+  background:var(--kpiAmberAccent);
+}
+.kpi-amber .kpi-num{
+  color:#fff;               /* цифра белая */
+  text-shadow:0 1px 3px rgba(0,0,0,.25);
+}
+.kpi-amber .kpi-sub{
+  color:#fff;
+  opacity:.9;
+}
 
-/* общий контент карточек */
+/* контент карточки */
 .kpi-main{display:flex;flex-direction:column;justify-content:center}
 .kpi-num{font-weight:900;font-size:40px;line-height:1}
 .kpi-num.big{font-size:48px}
-.kpi-sub{font-size:12px;color:#222;margin-top:6px}
+.kpi-sub{font-size:12px;margin-top:6px}
 
 /* --- Podium --- */
 .podium{
@@ -116,7 +126,7 @@ body{
 .bronze{background:linear-gradient(180deg,#f3b07f 0%, #df8f56 100%)}
 .pod-clicks{margin-top:8px;color:#2e2e2e;font-size:14px}
 
-/* --- Others (с 4 места) --- */
+/* --- Others --- */
 .others{margin-top:18px;display:flex;flex-direction:column;gap:14px;max-width:1120px}
 .other{
   display:grid;grid-template-columns: 1fr 140px 140px;
