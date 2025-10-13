@@ -7,8 +7,10 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count, Sum, F
 from django.shortcuts import get_object_or_404
+from django.utils.timezone import now  # ⬅ добавлено
+import hashlib                         # ⬅ добавлено
 
-from core.models import Project, Member, Link, ProjectMember
+from core.models import Project, Member, Link, ProjectMember, ClickEvent  # ⬅ ClickEvent добавлен
 
 
 # ==========================
@@ -376,9 +378,30 @@ def project_link_create(request: HttpRequest, pk: int):
 @require_GET
 def link_redirect(request: HttpRequest, pk: int):
     """
-    Короткий урл: /go/<id>/
-    Делает +1 к кликам и редиректит на target_url.
+    Короткий урл: /go/<id>
+    Фиксируем ClickEvent (user_key, ip, ua) + увеличиваем счётчик, затем редирект.
     """
     link = get_object_or_404(Link, pk=pk)
+
+    ua = request.META.get("HTTP_USER_AGENT", "")
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    ip = (xff.split(",")[0].strip() if xff else request.META.get("REMOTE_ADDR"))
+
+    user_key = (request.GET.get("user") or "").strip()
+    if not user_key:
+        # стабильный фолбэк, если фронт не передал user
+        user_key = hashlib.sha256(f"{ip}-{ua}".encode()).hexdigest()[:32]
+
+    # записываем событие клика
+    ClickEvent.objects.create(
+        link=link,
+        user_key=user_key or None,
+        ip=ip,
+        ua=ua[:700],
+        created_at=now(),
+    )
+
+    # инкремент счётчика кликов у ссылки
     Link.objects.filter(pk=pk).update(clicks=F("clicks") + 1)
+
     return HttpResponseRedirect(link.target_url)
