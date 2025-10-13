@@ -131,3 +131,20 @@ window.API = (() => {
     linkCreate, linksByOwner, shortLink,
   };
 })();
+
+
+(function () {
+  try {
+    let key = localStorage.getItem('qp_user_key');
+    if (!key) {
+      // надёжный постоянный идентификатор устройства
+      key = (crypto && crypto.randomUUID) ? crypto.randomUUID() :
+            Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('qp_user_key', key);
+    }
+    window.QP_USER_KEY = key; // используйте везде, где вызываете /api/track-click
+  } catch (e) {
+    // совсем крайний случай
+    window.QP_USER_KEY = 'fallback-' + Date.now();
+  }
+})();
