@@ -10,7 +10,7 @@
     kMembers: $('#kpiMembers'),
     kLinks:   $('#kpiLinks'),
     kClicks:  $('#kpiClicks'),
-    kUniques: $('#kpiUniques'), // 👈 KPI уникальных пользователей
+    kUniques: $('#kpiUniques'), // KPI уникальных пользователей
     podium:   $('#podium'),
     others:   $('#others'),
     corner:   $('#corner'),
@@ -111,7 +111,7 @@
     if (els.kClicks)  els.kClicks.textContent  = formatInt(clicksSum); // локальная сумма (может быть перекрыта loadProjectStats)
   }
 
-  // 👇 Точная статистика проекта (клики + уникальные)
+  // Точная статистика проекта (клики + уникальные)
   async function loadProjectStats() {
     try {
       // Правильный эндпоинт: GET /api/project-stats/<project_id>/
@@ -124,11 +124,9 @@
         els.kUniques.textContent = formatInt(d.unique_users);
       }
       if (els.kClicks && typeof d.total_clicks !== 'undefined') {
-        // Перекрываем локальную сумму кликов точным значением с бэкенда
         els.kClicks.textContent = formatInt(d.total_clicks);
       }
     } catch (e) {
-      // Молча фолбэк: показываем локальные KPI, а уникальные остаются '—', если элемент есть
       if (els.kUniques && !els.kUniques.textContent) els.kUniques.textContent = '—';
     }
   }
@@ -136,9 +134,9 @@
   function renderSkeleton() {
     if (els.podium) {
       els.podium.innerHTML = `
-        <div class="pod-col"><div class="pod-name">Loading…</div><div class="pod-step bronze"><div class="pod-place">3</div></div><div class="pod-clicks">—</div></div>
-        <div class="pod-col mid"><div class="pod-name">Loading…</div><div class="pod-step gold"><div class="pod-place">1</div></div><div class="pod-clicks">—</div></div>
         <div class="pod-col"><div class="pod-name">Loading…</div><div class="pod-step silver"><div class="pod-place">2</div></div><div class="pod-clicks">—</div></div>
+        <div class="pod-col mid"><div class="pod-name">Loading…</div><div class="pod-step gold"><div class="pod-place">1</div></div><div class="pod-clicks">—</div></div>
+        <div class="pod-col"><div class="pod-name">Loading…</div><div class="pod-step bronze"><div class="pod-place">3</div></div><div class="pod-clicks">—</div></div>
       `;
     }
     if (els.others) {
@@ -146,6 +144,7 @@
     }
   }
 
+  // правильный порядок подиума: слева 2 место (silver), по центру 1 (gold), справа 3 (bronze)
   function renderPodiumAndOthers() {
     const podium = els.podium;
     const others = els.others;
@@ -160,13 +159,16 @@
       return;
     }
 
-    const top3 = [list[0], list[1], list[2]].filter(Boolean);
-    const order = [2,0,1]; // показываем как 3-1-2
+    const top1 = list[0];
+    const top2 = list[1];
+    const top3 = list[2];
 
-    const renderPodCol = (member, place) => {
+    const renderCol = (member, place) => {
+      if (!member) return;
       const cls = place === 1 ? 'gold' : place === 2 ? 'silver' : 'bronze';
+      const mid = place === 1 ? ' mid' : '';
       const col = document.createElement('div');
-      col.className = 'pod-col' + (place === 1 ? ' mid' : '');
+      col.className = 'pod-col' + mid;
       col.innerHTML = `
         <div class="pod-name">${safe(member.name)}</div>
         <div class="pod-bar ${cls}" data-links="${member.id}">
@@ -180,13 +182,12 @@
       podium.appendChild(col);
     };
 
-    order.forEach(idx => {
-      const m = top3[idx];
-      if (!m) return;
-      const place = idx === 0 ? 3 : idx === 1 ? 1 : 2;
-      renderPodCol(m, place);
-    });
+    // 2 → 1 → 3
+    renderCol(top2, 2);
+    renderCol(top1, 1);
+    renderCol(top3, 3);
 
+    // остальные
     const rest = list.slice(3);
     rest.forEach((m, i) => {
       const row = document.createElement('div');
@@ -207,26 +208,45 @@
     });
   }
 
+  // показать список ссылок с уникальными пользователями для каждой ссылки
   async function openLinksList(ownerId) {
     const { items = [] } = await API.linksByOwner(state.projectId, ownerId);
     const owner = state.membersInProject.find(m => m.id === ownerId);
     if (els.linksListTitle) els.linksListTitle.textContent = `${owner ? owner.name : 'Member'} — links`;
 
     els.linksListBody.innerHTML = '';
+
     if (!items.length) {
       els.linksListBody.innerHTML = `<div class="link-row"><div>No links yet</div><div>0 clicks</div></div>`;
-    } else {
-      items.forEach(l => {
-        const row = document.createElement('div');
-        row.className = 'link-row';
-        const short = API.shortLink(l.id);
-        row.innerHTML = `
-          <div class="link-name" data-url="${short}" title="Click to copy">${safe(l.name)}</div>
-          <div>${formatInt(l.clicks)} clicks</div>
-        `;
-        els.linksListBody.appendChild(row);
-      });
+      openModal(els.modalLinksList);
+      return;
     }
+
+    // подтягиваем уникальных пользователей для каждой ссылки
+    const stats = await Promise.all(items.map(async (l) => {
+      try {
+        const r = await fetch(`/api/link-stats/${l.id}/`, { credentials: 'same-origin' });
+        if (!r.ok) throw new Error('bad');
+        const d = await r.json();
+        return { id: l.id, unique: Number(d.unique_users || 0) };
+      } catch {
+        return { id: l.id, unique: 0 };
+      }
+    }));
+    const byId = new Map(stats.map(s => [s.id, s.unique]));
+
+    items.forEach(l => {
+      const row = document.createElement('div');
+      row.className = 'link-row';
+      const short = API.shortLink(l.id);
+      const uniques = byId.get(l.id) ?? 0;
+      row.innerHTML = `
+        <div class="link-name" data-url="${short}" title="Click to copy">${safe(l.name)}</div>
+        <div>${formatInt(uniques)} uniques · ${formatInt(l.clicks)} clicks</div>
+      `;
+      els.linksListBody.appendChild(row);
+    });
+
     openModal(els.modalLinksList);
   }
 
@@ -326,7 +346,7 @@
       renderKPIs();
       renderPodiumAndOthers();
 
-      // 👇 Обновим точные проектные метрики (клики/уники)
+      // Обновим точные метрики проекта (клики/уники)
       await loadProjectStats();
 
       // Показать короткую ссылку
@@ -404,7 +424,7 @@
       renderKPIs();
       renderPodiumAndOthers();
 
-      // 👇 После изменения состава проекта обновим точные метрики
+      // После изменения состава проекта обновим точные метрики
       await loadProjectStats();
     } catch (err) {
       console.error(err);
@@ -459,7 +479,7 @@
       renderHeader();
       renderKPIs();            // локальные суммы
       renderPodiumAndOthers();
-      await loadProjectStats(); // 👈 точные клики и уникальные из бэкенда
+      await loadProjectStats(); // точные клики и уникальные из бэкенда
     } catch (err) {
       console.error(err);
       toast('Failed to load project', 'err');
