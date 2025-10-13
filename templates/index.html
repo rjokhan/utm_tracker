@@ -110,8 +110,39 @@
     </section>
   </main>
 
-  <!-- JS -->
+    <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
   <script src="{% static 'js/index.js' %}"></script>
+
+  <!-- === Qizil Pomada tracker: persistent user key + auto attach === -->
+  <script>
+  // === ШАГ 1. Создаём постоянный user_key в localStorage ===
+  (function () {
+    try {
+      let key = localStorage.getItem('qp_user_key');
+      if (!key) {
+        key = (crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem('qp_user_key', key);
+      }
+      window.QP_USER_KEY = key;
+    } catch (e) {
+      window.QP_USER_KEY = 'fallback-' + Date.now();
+    }
+  })();
+
+  // === ШАГ 2. Добавляем user=<QP_USER_KEY> ко всем кликабельным трек-ссылкам ===
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('a[href*="/api/track-click/"]');
+    if (!a) return;
+    const url = new URL(a.href, location.origin);
+    url.searchParams.set('user', window.QP_USER_KEY);
+    a.href = url.toString();
+  }, true);
+  </script>
+</body>
+</html>
+
 </body>
 </html>
