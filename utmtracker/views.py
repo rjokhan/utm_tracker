@@ -7,9 +7,8 @@ import hashlib
 import re
 
 from django.db.models import Count, Sum, F
-from django.http import JsonResponse, HttpResponseRedirect, HttpRequest
-from django.shortcuts import get_object_or_404, render
-from django.templatetags.static import static
+from django.http import JsonResponse, HttpResponseRedirect, HttpRequest, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -61,7 +60,7 @@ def _member_row(name: str, links: int, clicks: int, member_id: int | None = None
     return {"id": member_id, "name": name, "links": links, "clicks": clicks or 0}
 
 
-# -------- crawler detection (для красивой OG-страницы) --------
+# -------- crawler detection (чтобы у ботов не было превью) --------
 BOT_UA_RE = re.compile(
     r"(telegrambot|facebookexternalhit|twitterbot|slackbot|whatsapp|"
     r"linkedinbot|vkshare|discordbot|bitlybot|skypeuripreview|pinterest|quora|applebot)",
@@ -446,35 +445,38 @@ def project_stats(request: HttpRequest, pk: int):
 
 
 # ==========================
-# Redirect / Click counting + crawler OG preview
+# Redirect / Click counting (no preview for crawlers)
 # ==========================
 @require_GET
 def link_redirect(request: HttpRequest, pk: int):
     """
     Короткий урл: /go/<id>/
-    - Для людей: пишем ClickEvent + инкрементим clicks и делаем 302 на target_url
-    - Для парсеров (Telegram/Facebook/Twitter и т.п.): отдаём OG-страницу без инкремента кликов
+    - Для ботов-превьюеров (Telegram/Facebook/Twitter и т.п.) — возвращаем простую HTML-страницу
+      БЕЗ og:/twitter: метатегов (превью не будет) c meta refresh.
+      Клики для ботов не считаем.
+    - Для людей — пишем ClickEvent, инкрементим clicks и делаем 302 на target_url.
     """
     link = get_object_or_404(Link, pk=pk)
 
-    # Если это бот-превьюер — отдадим свою OG-страницу (клики не считаем)
+    # Боты/краулеры — отдать минимальный HTML без OG, чтобы совсем не было карточек-превью
     if _is_crawler(request):
-        image_abs = request.build_absolute_uri(static("img/share.jpg"))  # положи картинку в static/img/share.jpg
-        short_url = request.build_absolute_uri(request.path)
-        ctx = {
-            "title": link.name or "Link",
-            "description": "Tap to open the link",
-            "image": image_abs,
-            "url": short_url,
-            "target_url": link.target_url,
-            "project_name": getattr(link.project, "name", "") or "Qizil pomada",
-        }
-        resp = render(request, "link_preview.html", ctx)
+        html = f"""<!doctype html>
+<html><head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url={link.target_url}">
+  <title>Redirecting…</title>
+  <!-- no og:* / twitter:* to prevent previews -->
+  <meta name="robots" content="noindex,nofollow">
+</head><body>
+  <p><a href="{link.target_url}">Redirecting…</a></p>
+</body></html>"""
+        resp = HttpResponse(html, content_type="text/html; charset=utf-8", status=200)
+        # Чуть кешируем у ботов, но без ог-тегов им нечего кэшировать как карточку
         resp["Cache-Control"] = "public, max-age=86400"
         return resp
 
-    # Реальный клик пользователя — считаем
-    ua = request.META.get("HTTP_USER_AGENT", "")
+    # Реальный пользователь — считаем
+    ua = request.META.get("HTTP_USER_AGENT", "") or ""
     xff = request.META.get("HTTP_X_FORWARDED_FOR")
     ip = (xff.split(",")[0].strip() if xff else request.META.get("REMOTE_ADDR"))
 
@@ -483,7 +485,6 @@ def link_redirect(request: HttpRequest, pk: int):
         # стабильный фолбэк, если фронт не передал user
         user_key = hashlib.sha256(f"{ip}-{ua}".encode()).hexdigest()[:32]
 
-    # записываем событие клика
     ClickEvent.objects.create(
         link=link,
         user_key=user_key or None,
@@ -492,7 +493,6 @@ def link_redirect(request: HttpRequest, pk: int):
         created_at=now(),
     )
 
-    # инкремент счётчика кликов у ссылки
     Link.objects.filter(pk=pk).update(clicks=F("clicks") + 1)
 
     return HttpResponseRedirect(link.target_url)
