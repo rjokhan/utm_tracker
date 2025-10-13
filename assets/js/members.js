@@ -48,10 +48,22 @@
 
   const safe = (v) => (v ?? '').toString();
 
+  // --- per-member uniques helper (expects GET /api/member-stats/<id>/ -> { unique_users } )
+  async function getMemberUniques(memberId) {
+    try {
+      const r = await fetch(`/api/member-stats/${memberId}/`, { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      return Number(d?.unique_users || 0);
+    } catch {
+      return 0;
+    }
+  }
+
   // ---------- KPI section ----------
   async function loadTeamStats() {
     try {
-      // ✅ Исправленный эндпоинт
+      // Проектные суммарные метрики (ожидается: { total_clicks, unique_users })
       const res = await fetch('/api/project-stats/', { credentials: 'same-origin' });
       if (!res.ok) throw new Error('stats failed');
       const data = await res.json();
@@ -65,8 +77,8 @@
     }
   }
 
-  // Рендер строки участника
-  function renderRow(idx, item) {
+  // Рендер строки участника (с уникальными пользователями)
+  function renderRow(idx, item, uniques = 0) {
     const row = document.createElement('div');
     row.className = 'row';
     const name = safe(item.name);
@@ -78,6 +90,7 @@
       <div class="name">${name}</div>
       <div class="meta">
         Active in <b>${formatInt(activeIn)}</b> projects&nbsp;&nbsp;&nbsp;
+        Unique users: <b>${formatInt(uniques)}</b>&nbsp;&nbsp;&nbsp;
         Total clicks: <b>${formatInt(clicks)}</b>
       </div>
     `;
@@ -128,8 +141,13 @@
       return;
     }
 
+    // Получаем уникальных пользователей для каждого участника (параллельно)
+    const uniquesArr = await Promise.all(sorted.map(m => getMemberUniques(m.id)));
+
+    // Рендерим
     sorted.forEach((m, i) => {
-      els.list.appendChild(renderRow(i + 1, m));
+      const uniques = uniquesArr[i] ?? 0;
+      els.list.appendChild(renderRow(i + 1, m, uniques));
     });
 
     if (els.kTeam) els.kTeam.textContent = formatInt(sorted.length);

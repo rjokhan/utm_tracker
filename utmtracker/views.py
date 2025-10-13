@@ -1,16 +1,20 @@
 # utmtracker/views.py
+
 from __future__ import annotations
 from typing import Any, Dict, List
 
-from django.http import JsonResponse, HttpResponseRedirect, HttpRequest
-from django.views.decorators.http import require_GET, require_POST
-from django.views.decorators.csrf import csrf_exempt
-from django.db.models import Count, Sum, F
-from django.shortcuts import get_object_or_404
-from django.utils.timezone import now  # ⬅ добавлено
-import hashlib                         # ⬅ добавлено
+import hashlib
+import re
 
-from core.models import Project, Member, Link, ProjectMember, ClickEvent  # ⬅ ClickEvent добавлен
+from django.db.models import Count, Sum, F
+from django.http import JsonResponse, HttpResponseRedirect, HttpRequest
+from django.shortcuts import get_object_or_404, render
+from django.templatetags.static import static
+from django.utils.timezone import now
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
+
+from core.models import Project, Member, Link, ProjectMember, ClickEvent
 
 
 # ==========================
@@ -36,9 +40,8 @@ def _role(request: HttpRequest) -> str:
 
 def _require_editor(request: HttpRequest):
     """
-    ВАЖНО: проверки роли отключены.
-    Возвращаем None всегда, чтобы разрешить правки всем.
-    Если когда-нибудь захочешь вернуть защиту — раскомментируй нижние строки.
+    ПРОВЕРКИ РОЛЕЙ ОТКЛЮЧЕНЫ.
+    Если нужно вернуть защиту — раскомментируй проверку ниже.
     """
     # if _role(request) != "editor":
     #     return JsonResponse({"error": "forbidden", "detail": "editor required"}, status=403)
@@ -58,6 +61,19 @@ def _member_row(name: str, links: int, clicks: int, member_id: int | None = None
     return {"id": member_id, "name": name, "links": links, "clicks": clicks or 0}
 
 
+# -------- crawler detection (для красивой OG-страницы) --------
+BOT_UA_RE = re.compile(
+    r"(telegrambot|facebookexternalhit|twitterbot|slackbot|whatsapp|"
+    r"linkedinbot|vkshare|discordbot|bitlybot|skypeuripreview|pinterest|quora|applebot)",
+    re.I,
+)
+
+
+def _is_crawler(request: HttpRequest) -> bool:
+    ua = request.META.get("HTTP_USER_AGENT", "") or ""
+    return bool(BOT_UA_RE.search(ua))
+
+
 # ==========================
 # Auth: username -> session
 # ==========================
@@ -71,6 +87,7 @@ def login(request: HttpRequest):
     - кладём user_id в сессию
     """
     import json
+
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
@@ -82,12 +99,14 @@ def login(request: HttpRequest):
     member, _ = Member.objects.get_or_create(name=username)
     request.session["user_id"] = member.id
 
-    return JsonResponse({
-        "ok": True,
-        "username": member.name,
-        "role": "editor" if member.is_editor else "viewer",
-        "is_editor": member.is_editor,
-    })
+    return JsonResponse(
+        {
+            "ok": True,
+            "username": member.name,
+            "role": "editor" if member.is_editor else "viewer",
+            "is_editor": member.is_editor,
+        }
+    )
 
 
 @csrf_exempt
@@ -104,12 +123,14 @@ def me(request: HttpRequest):
     user = _current_user(request)
     if not user:
         return JsonResponse({"auth": False, "role": "anon"})
-    return JsonResponse({
-        "auth": True,
-        "username": user.name,
-        "role": "editor" if user.is_editor else "viewer",
-        "is_editor": user.is_editor,
-    })
+    return JsonResponse(
+        {
+            "auth": True,
+            "username": user.name,
+            "role": "editor" if user.is_editor else "viewer",
+            "is_editor": user.is_editor,
+        }
+    )
 
 
 # ==========================
@@ -155,6 +176,7 @@ def project_create(request: HttpRequest):
         return err
 
     import json
+
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
@@ -203,28 +225,19 @@ def project_members(request: HttpRequest, pk: int):
     """
     get_object_or_404(Project, pk=pk)
 
-    member_ids = list(
-        ProjectMember.objects.filter(project_id=pk).values_list("member_id", flat=True)
-    )
+    member_ids = list(ProjectMember.objects.filter(project_id=pk).values_list("member_id", flat=True))
     members = Member.objects.filter(id__in=member_ids).order_by("name")
 
     # агрегаты по ссылкам внутри проекта
-    agg = (
-        Link.objects.filter(project_id=pk)
-        .values("owner_id")
-        .annotate(links=Count("id"), clicks=Sum("clicks"))
-    )
+    agg = Link.objects.filter(project_id=pk).values("owner_id").annotate(links=Count("id"), clicks=Sum("clicks"))
     by_owner = {r["owner_id"]: r for r in agg}
 
     items: List[Dict[str, Any]] = []
     for m in members:
         r = by_owner.get(m.id, {})
-        items.append({
-            "id": m.id,
-            "name": m.name,
-            "links": r.get("links", 0) or 0,
-            "clicks": r.get("clicks", 0) or 0,
-        })
+        items.append(
+            {"id": m.id, "name": m.name, "links": r.get("links", 0) or 0, "clicks": r.get("clicks", 0) or 0}
+        )
     return JsonResponse({"items": items})
 
 
@@ -240,6 +253,7 @@ def project_add_member(request: HttpRequest, pk: int):
         return err
 
     import json
+
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
@@ -250,7 +264,7 @@ def project_add_member(request: HttpRequest, pk: int):
         return JsonResponse({"error": "member_id_required"}, status=400)
 
     project = get_object_or_404(Project, pk=pk)
-    member  = get_object_or_404(Member, pk=member_id)
+    member = get_object_or_404(Member, pk=member_id)
 
     ProjectMember.objects.get_or_create(project=project, member=member)
     return JsonResponse({"ok": True})
@@ -269,26 +283,24 @@ def members_list(request: HttpRequest):
 
     agg = (
         Link.objects.values("owner_id")
-        .annotate(
-            total_links=Count("id"),
-            total_clicks=Sum("clicks"),
-            projects=Count("project", distinct=True),
-        )
+        .annotate(total_links=Count("id"), total_clicks=Sum("clicks"), projects=Count("project", distinct=True))
     )
     by_owner = {r["owner_id"]: r for r in agg}
 
     items: List[Dict[str, Any]] = []
     for m in base:
         r = by_owner.get(m.id, {})
-        items.append({
-            "id": m.id,
-            "name": m.name,
-            "is_editor": m.is_editor,
-            "active_projects": r.get("projects", 0),
-            "links": r.get("total_links", 0),
-            "clicks": r.get("total_clicks", 0) or 0,
-            "created_at": m.created_at.isoformat(),
-        })
+        items.append(
+            {
+                "id": m.id,
+                "name": m.name,
+                "is_editor": m.is_editor,
+                "active_projects": r.get("projects", 0),
+                "links": r.get("total_links", 0),
+                "clicks": r.get("total_clicks", 0) or 0,
+                "created_at": m.created_at.isoformat(),
+            }
+        )
     return JsonResponse({"items": items})
 
 
@@ -305,6 +317,7 @@ def member_create(request: HttpRequest):
         return err
 
     import json
+
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
@@ -328,9 +341,7 @@ def project_links_by_owner(request: HttpRequest, pk: int, owner_id: int):
     items: [{id, name, clicks, target_url}]
     """
     items = list(
-        Link.objects.filter(project_id=pk, owner_id=owner_id)
-        .order_by("-clicks", "-id")
-        .values("id", "name", "clicks", "target_url")
+        Link.objects.filter(project_id=pk, owner_id=owner_id).order_by("-clicks", "-id").values("id", "name", "clicks", "target_url")
     )
     for it in items:
         it["clicks"] = it["clicks"] or 0
@@ -350,6 +361,7 @@ def project_link_create(request: HttpRequest, pk: int):
         return err
 
     import json
+
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
@@ -373,16 +385,95 @@ def project_link_create(request: HttpRequest, pk: int):
 
 
 # ==========================
-# Redirect / Click counting
+# Stats APIs (unique users)
+# ==========================
+@require_GET
+def link_stats(request: HttpRequest, pk: int):
+    """
+    Статистика по одной ссылке.
+    GET /api/link-stats/<link_id>/
+    -> { link_id, total_clicks, unique_users }
+    """
+    get_object_or_404(Link, pk=pk)
+    total_clicks = Link.objects.filter(pk=pk).aggregate(s=Sum("clicks"))["s"] or 0
+    unique_users = (
+        ClickEvent.objects.filter(link_id=pk)
+        .exclude(user_key__isnull=True)
+        .exclude(user_key__exact="")
+        .values("user_key")
+        .distinct()
+        .count()
+    )
+    return JsonResponse({"link_id": pk, "total_clicks": total_clicks, "unique_users": unique_users})
+
+
+@require_GET
+def project_stats_global(request: HttpRequest):
+    """
+    Глобальная статистика (по всем ссылкам всех проектов).
+    GET /api/project-stats/
+    -> { total_clicks, unique_users }
+    """
+    total_clicks = Link.objects.aggregate(s=Sum("clicks"))["s"] or 0
+    unique_users = (
+        ClickEvent.objects.exclude(user_key__isnull=True)
+        .exclude(user_key__exact="")
+        .values("user_key")
+        .distinct()
+        .count()
+    )
+    return JsonResponse({"total_clicks": total_clicks, "unique_users": unique_users})
+
+
+@require_GET
+def project_stats(request: HttpRequest, pk: int):
+    """
+    Статистика в рамках проекта.
+    GET /api/project-stats/<project_id>/
+    -> { project_id, total_clicks, unique_users }
+    """
+    get_object_or_404(Project, pk=pk)
+    total_clicks = Link.objects.filter(project_id=pk).aggregate(s=Sum("clicks"))["s"] or 0
+    unique_users = (
+        ClickEvent.objects.filter(link__project_id=pk)
+        .exclude(user_key__isnull=True)
+        .exclude(user_key__exact="")
+        .values("user_key")
+        .distinct()
+        .count()
+    )
+    return JsonResponse({"project_id": pk, "total_clicks": total_clicks, "unique_users": unique_users})
+
+
+# ==========================
+# Redirect / Click counting + crawler OG preview
 # ==========================
 @require_GET
 def link_redirect(request: HttpRequest, pk: int):
     """
-    Короткий урл: /go/<id>
-    Фиксируем ClickEvent (user_key, ip, ua) + увеличиваем счётчик, затем редирект.
+    Короткий урл: /go/<id>/
+    - Для людей: пишем ClickEvent + инкрементим clicks и делаем 302 на target_url
+    - Для парсеров (Telegram/Facebook/Twitter и т.п.): отдаём OG-страницу без инкремента кликов
     """
     link = get_object_or_404(Link, pk=pk)
 
+    # Если это бот-превьюер — отдадим свою OG-страницу (клики не считаем)
+    if _is_crawler(request):
+        image_abs = request.build_absolute_uri(static("img/share.jpg"))  # положи картинку в static/img/share.jpg
+        short_url = request.build_absolute_uri(request.path)
+        ctx = {
+            "title": link.name or "Link",
+            "description": "Tap to open the link",
+            "image": image_abs,
+            "url": short_url,
+            "target_url": link.target_url,
+            "project_name": getattr(link.project, "name", "") or "Qizil pomada",
+        }
+        resp = render(request, "link_preview.html", ctx)
+        resp["Cache-Control"] = "public, max-age=86400"
+        return resp
+
+    # Реальный клик пользователя — считаем
     ua = request.META.get("HTTP_USER_AGENT", "")
     xff = request.META.get("HTTP_X_FORWARDED_FOR")
     ip = (xff.split(",")[0].strip() if xff else request.META.get("REMOTE_ADDR"))
