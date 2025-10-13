@@ -51,7 +51,8 @@
   // ---------- KPI section ----------
   async function loadTeamStats() {
     try {
-      const res = await fetch('/api/stats/project/', { credentials: 'same-origin' });
+      // ✅ Исправленный эндпоинт
+      const res = await fetch('/api/project-stats/', { credentials: 'same-origin' });
       if (!res.ok) throw new Error('stats failed');
       const data = await res.json();
 

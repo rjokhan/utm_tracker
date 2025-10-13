@@ -10,7 +10,7 @@
     kMembers: $('#kpiMembers'),
     kLinks:   $('#kpiLinks'),
     kClicks:  $('#kpiClicks'),
-    kUniques: $('#kpiUniques'), // 👈 ДОБАВЛЕНО: KPI уникальных пользователей
+    kUniques: $('#kpiUniques'), // 👈 KPI уникальных пользователей
     podium:   $('#podium'),
     others:   $('#others'),
     corner:   $('#corner'),
@@ -111,12 +111,12 @@
     if (els.kClicks)  els.kClicks.textContent  = formatInt(clicksSum); // локальная сумма (может быть перекрыта loadProjectStats)
   }
 
-  // 👇 ДОБАВЛЕНО: точная статистика проекта (клики + уникальные)
+  // 👇 Точная статистика проекта (клики + уникальные)
   async function loadProjectStats() {
     try {
-      // Требуется эндпоинт: GET /api/stats/project/<project_id>/
-      // Возвращает: { total_clicks: int, unique_users: int }
-      const r = await fetch(`/api/stats/project/${state.projectId}/`, { credentials: 'same-origin' });
+      // Правильный эндпоинт: GET /api/project-stats/<project_id>/
+      // Возвращает: { project_id, total_clicks, unique_users }
+      const r = await fetch(`/api/project-stats/${state.projectId}/`, { credentials: 'same-origin' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
 
@@ -130,7 +130,6 @@
     } catch (e) {
       // Молча фолбэк: показываем локальные KPI, а уникальные остаются '—', если элемент есть
       if (els.kUniques && !els.kUniques.textContent) els.kUniques.textContent = '—';
-      // console.warn('Project stats not available', e);
     }
   }
 
