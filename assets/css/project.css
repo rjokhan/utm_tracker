@@ -182,3 +182,39 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
 }
 
 /* На мобильных всё уже настроено — одна колонка (ваше правило ниже 1280px) */
+
+/* --- FIX: Project header layout (title on first row, meta under it) --- */
+.project-badge{
+  flex-wrap: wrap;            /* разрешаем перенос внутри бейджа */
+  align-items: flex-start;    /* выравниваем по левому краю */
+  gap: 8px 16px;              /* помягче расстояния: [row gap] [col gap] */
+}
+
+.project-name{
+  flex: 0 0 100%;             /* название занимает всю первую строку */
+  line-height: 1.05;
+  margin: 0 0 2px 0;
+}
+
+/* любые элементы мета-инфо (даты/роль/статус) окажутся под названием */
+.project-badge .project-dates,
+.project-badge .project-role,
+.project-badge .role,
+.project-badge .status{
+  order: 2;
+  font-weight: 700;
+}
+
+/* опционально: делаем статус аккуратной «пилюлей» */
+.project-badge .project-role,
+.project-badge .role,
+.project-badge .status{
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #ffdbe7;
+  color: #000;
+  line-height: 1;
+}
