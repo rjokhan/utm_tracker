@@ -12,25 +12,13 @@
     memberName:  $('#memberName'),
     btnAdd:      $('#btnAddMember'),
     btnCreate:   $('#createMember'),
-    // KPI элементы
+    // KPI
     kTeam:       $('#team-members'),
     kClicks:     $('#team-clicks'),
     kUniques:    $('#team-uniques'),
   };
 
-  // --- state ---
   let creating = false;
-
-  // --- helpers ---
-  const open  = () => {
-    els.overlay?.classList.add('show');
-    els.modalAdd?.classList.add('show');
-    setTimeout(() => els.memberName?.focus(), 50);
-  };
-  const close = ()  => {
-    els.overlay?.classList.remove('show');
-    els.modalAdd?.classList.remove('show');
-  };
 
   const toast = (msg, type='ok') => {
     if (!els.corner) return;
@@ -45,15 +33,22 @@
     const n = Number(v);
     return Number.isFinite(n) ? n : def;
   };
-
   const formatInt = (n) => int(n).toLocaleString('en-US');
   const safe = (v) => (v ?? '').toString();
 
+  const open  = () => {
+    els.overlay?.classList.add('show');
+    els.modalAdd?.classList.add('show');
+    setTimeout(() => els.memberName?.focus(), 50);
+  };
+  const close = ()  => {
+    els.overlay?.classList.remove('show');
+    els.modalAdd?.classList.remove('show');
+  };
+
   /**
-   * Получаем статистику участника.
-   * Поддерживаем разные варианты ключей с бэка:
-   * - uniques: unique_clicks | unique_users | uniques | unique
-   * - total:   total_clicks  | clicks
+   * Метрики участника:
+   * поддерживаем разные ключи с бэка.
    */
   async function getMemberStats(memberId) {
     try {
@@ -64,21 +59,21 @@
       const total   = int(d?.total_clicks ?? d?.clicks ?? 0);
       return { unique_users: uniques, total_clicks: total };
     } catch {
+      // Фоллбек нулей: дальше доберём из списка
       return { unique_users: 0, total_clicks: 0 };
     }
   }
 
-  // ---------- KPI section ----------
+  // ---------- KPI (суммы по проекту) ----------
   async function loadTeamStats() {
     try {
-      // Суммарные метрики по всем ссылкам и участникам
       const res = await fetch('/api/project-stats/', { credentials: 'same-origin' });
       if (!res.ok) throw new Error('stats failed');
       const data = await res.json();
 
       if (els.kClicks)  els.kClicks.textContent  = formatInt(data.total_clicks ?? 0);
       if (els.kUniques) els.kUniques.textContent = formatInt(data.unique_users ?? data.unique_clicks ?? 0);
-      if (els.kTeam)    els.kTeam.textContent    = '—'; // реальное число проставим после списка
+      // ВАЖНО: не трогаем kTeam здесь, чтобы не затирать число участников
     } catch (e) {
       console.warn('Failed to load stats', e);
       if (els.kClicks)  els.kClicks.textContent  = '—';
@@ -86,14 +81,14 @@
     }
   }
 
-  // Рендер строки участника
+  // ---------- Рендер строки участника ----------
   function renderRow(idx, item) {
     const row = document.createElement('div');
     row.className = 'row';
 
     const name      = safe(item.name);
     const activeIn  = int(item.active_projects ?? item.activeIn ?? 0);
-    const uniques   = int(item.unique_users ?? 0); // уже нормализовано при обогащении
+    const uniques   = int(item.unique_users ?? item.unique_clicks ?? item.uniques ?? 0);
     const clicks    = int(item.total_clicks ?? item.clicks ?? 0);
 
     row.innerHTML = `
@@ -119,7 +114,7 @@
     `;
   }
 
-  // Загрузка и рендер списка
+  // ---------- Загрузка и рендер списка ----------
   async function loadAndRenderMembers() {
     if (!els.list) return;
     renderLoading();
@@ -127,15 +122,17 @@
     let items = [];
     try {
       const res = await API.membersAll();
-      items = res?.items || [];
+      // Поддержка двух форматов: {items: [...]} или [...]
+      items = Array.isArray(res) ? res : (res?.items || []);
     } catch (e) {
       console.error(e);
       els.list.innerHTML = '';
       toast('Failed to load members', 'err');
+      if (els.kTeam) els.kTeam.textContent = '0';
       return;
     }
 
-    // Если пусто
+    // Пусто
     if (!items.length) {
       els.list.innerHTML = '';
       const empty = document.createElement('div');
@@ -146,25 +143,22 @@
       return;
     }
 
-    // Подтягиваем индивидуальные метрики (unique + clicks) параллельно
-    const stats = await Promise.all(items.map(m => getMemberStats(m.id)));
+    // Параллельно тянем индивидуальные метрики
+    const stats = await Promise.all(items.map(m => getMemberStats(m.id ?? m.pk)));
 
-    // Обогащаем исходные элементы
+    // Обогащаем элемент фоллбеками, если API метрик не ответил
     const enriched = items.map((m, i) => {
       const st = stats[i] || { unique_users: 0, total_clicks: 0 };
-      const clicksFallback  = int(m.clicks ?? 0);
+      const clicksFallback  = int(m.total_clicks ?? m.clicks ?? 0);
       const uniquesFallback = int(m.unique_users ?? m.unique_clicks ?? m.uniques ?? 0);
       return {
         ...m,
-        unique_users: int(st.unique_users ?? uniquesFallback ?? 0),
+        unique_users: int(st.unique_users ?? uniquesFallback),
         total_clicks: Number.isFinite(st.total_clicks) ? st.total_clicks : clicksFallback,
       };
     });
 
-    // Сортировка:
-    // 1) по total_clicks DESC
-    // 2) по unique_users DESC
-    // 3) стабилизатор по created_at ASC
+    // Сортировка: по кликам, затем по уникальным, затем по дате
     const sorted = enriched.sort((a, b) => {
       const c1 = int(b.total_clicks) - int(a.total_clicks);
       if (c1 !== 0) return c1;
@@ -177,19 +171,16 @@
 
     // Рендер
     els.list.innerHTML = '';
-    sorted.forEach((m, i) => {
-      const row = renderRow(i + 1, m);
-      els.list.appendChild(row);
-    });
+    sorted.forEach((m, i) => els.list.appendChild(renderRow(i + 1, m)));
 
-    // Помечаем аутсайдера (последний после сортировки)
     const last = els.list.lastElementChild;
     if (last) last.classList.add('outsider');
 
+    // Устанавливаем KPI «total team members»
     if (els.kTeam) els.kTeam.textContent = formatInt(sorted.length);
   }
 
-  // Создание участника
+  // ---------- Создание участника ----------
   async function createMemberFlow() {
     const nm = safe(els.memberName?.value).trim();
     if (!nm) { toast('Enter name', 'err'); return; }
@@ -202,8 +193,10 @@
       await API.memberCreate(nm);
       close();
       toast('SUCCESSFULLY CREATED', 'ok');
+      // Сначала обновим список (он ставит kTeam),
+      // затем суммарные KPI (не затираем kTeam).
       await loadAndRenderMembers();
-      await loadTeamStats(); // обновить KPI
+      await loadTeamStats();
     } catch (e) {
       console.error(e);
       toast('Error creating member', 'err');
@@ -213,43 +206,32 @@
     }
   }
 
-  // Инициализация
+  // ---------- Инициализация ----------
   async function init() {
-    // Если есть бейдж роли в разметке
     if (els.roleBadge) {
       els.roleBadge.textContent = 'Status | Editor (can edit)';
     }
 
-    // Кнопка «Add New Team Member»
     els.btnAdd?.addEventListener('click', () => {
       if (els.memberName) els.memberName.value = '';
       open();
     });
 
-    // Закрытие модалки
     els.overlay?.addEventListener('click', close);
     $$('[data-close]').forEach(b => b.addEventListener('click', close));
-
-    // Submit
     els.btnCreate?.addEventListener('click', createMemberFlow);
 
-    // Enter/Escape
     document.addEventListener('keydown', (ev) => {
       if (!els.modalAdd?.classList.contains('show')) return;
-      if (ev.key === 'Enter') {
-        ev.preventDefault();
-        createMemberFlow();
-      } else if (ev.key === 'Escape') {
-        close();
-      }
+      if (ev.key === 'Enter') { ev.preventDefault(); createMemberFlow(); }
+      else if (ev.key === 'Escape') { close(); }
     });
 
-    // Рендер списка и KPI
-    await loadAndRenderMembers();
+    // ВАЖНО: сначала суммарные KPI, потом список (который проставит kTeam)
     await loadTeamStats();
+    await loadAndRenderMembers();
   }
 
-  // go
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
