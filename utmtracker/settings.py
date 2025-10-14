@@ -19,11 +19,12 @@ _extra = os.environ.get('EXTRA_ALLOWED_HOSTS', '')
 if _extra:
     ALLOWED_HOSTS += [h.strip() for h in _extra.split(',') if h.strip()]
 
+# === SECURITY / CSRF ===
 CSRF_TRUSTED_ORIGINS = [
-    'http://89.39.95.53',
-    'https://89.39.95.53',
-    'utm.qizilpomada.uz',
-    'utm.qizilpomada.uz',
+    'https://utm.qizilpomada.uz',
+    'http://utm.qizilpomada.uz',   # можно удалить после включения https
+    'https://89.39.95.53',         # если заходите по IP по https
+    'http://89.39.95.53',          # временно для http (не обязателен)
 ]
 
 # === APPS ===
