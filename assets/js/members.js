@@ -1,3 +1,4 @@
+// assets/js/members.js
 (() => {
   const $  = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
@@ -40,27 +41,28 @@
     setTimeout(() => el.remove(), 2400);
   };
 
-  const formatInt = (n) => {
-    const v = Number(n || 0);
-    return Number.isFinite(v) ? v.toLocaleString('en-US') : '0';
+  const int = (v, def=0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : def;
   };
 
+  const formatInt = (n) => int(n).toLocaleString('en-US');
   const safe = (v) => (v ?? '').toString();
 
   /**
-   * Получаем статистику участника
-   * Ожидаемый ответ бекенда: { unique_users: number, total_clicks: number }
-   * Фоллбек: если total_clicks нет, используем переданное ранее поле item.clicks
+   * Получаем статистику участника.
+   * Поддерживаем разные варианты ключей с бэка:
+   * - uniques: unique_clicks | unique_users | uniques | unique
+   * - total:   total_clicks  | clicks
    */
   async function getMemberStats(memberId) {
     try {
       const r = await fetch(`/api/member-stats/${memberId}/`, { credentials: 'same-origin' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
-      return {
-        unique_users: Number(d?.unique_users || 0),
-        total_clicks: Number(d?.total_clicks ?? (d?.clicks ?? 0)),
-      };
+      const uniques = int(d?.unique_clicks ?? d?.unique_users ?? d?.uniques ?? d?.unique ?? 0);
+      const total   = int(d?.total_clicks ?? d?.clicks ?? 0);
+      return { unique_users: uniques, total_clicks: total };
     } catch {
       return { unique_users: 0, total_clicks: 0 };
     }
@@ -75,7 +77,8 @@
       const data = await res.json();
 
       if (els.kClicks)  els.kClicks.textContent  = formatInt(data.total_clicks ?? 0);
-      if (els.kUniques) els.kUniques.textContent = formatInt(data.unique_users ?? 0);
+      if (els.kUniques) els.kUniques.textContent = formatInt(data.unique_users ?? data.unique_clicks ?? 0);
+      if (els.kTeam)    els.kTeam.textContent    = '—'; // реальное число проставим после списка
     } catch (e) {
       console.warn('Failed to load stats', e);
       if (els.kClicks)  els.kClicks.textContent  = '—';
@@ -89,16 +92,16 @@
     row.className = 'row';
 
     const name      = safe(item.name);
-    const activeIn  = item.active_projects ?? item.activeIn ?? 0;
-    const uniques   = Number(item.unique_users || 0);
-    const clicks    = Number(item.total_clicks || item.clicks || 0);
+    const activeIn  = int(item.active_projects ?? item.activeIn ?? 0);
+    const uniques   = int(item.unique_users ?? 0); // уже нормализовано при обогащении
+    const clicks    = int(item.total_clicks ?? item.clicks ?? 0);
 
     row.innerHTML = `
       <div class="idx">${idx}</div>
       <div class="name">${name}</div>
       <div class="meta">
         Active in <b>${formatInt(activeIn)}</b> projects&nbsp;&nbsp;&nbsp;
-        Unique users: <b>${formatInt(uniques)}</b>&nbsp;&nbsp;&nbsp;
+        Unique clicks: <b>${formatInt(uniques)}</b>&nbsp;&nbsp;&nbsp;
         Total clicks: <b>${formatInt(clicks)}</b>
       </div>
     `;
@@ -145,26 +148,27 @@
 
     // Подтягиваем индивидуальные метрики (unique + clicks) параллельно
     const stats = await Promise.all(items.map(m => getMemberStats(m.id)));
+
+    // Обогащаем исходные элементы
     const enriched = items.map((m, i) => {
       const st = stats[i] || { unique_users: 0, total_clicks: 0 };
-      const clicksFallback = Number(m.clicks ?? 0);
+      const clicksFallback  = int(m.clicks ?? 0);
+      const uniquesFallback = int(m.unique_users ?? m.unique_clicks ?? m.uniques ?? 0);
       return {
         ...m,
-        unique_users: Number(st.unique_users || 0),
-        total_clicks: Number(
-          (Number.isFinite(st.total_clicks) ? st.total_clicks : clicksFallback)
-        ),
+        unique_users: int(st.unique_users ?? uniquesFallback ?? 0),
+        total_clicks: Number.isFinite(st.total_clicks) ? st.total_clicks : clicksFallback,
       };
     });
 
     // Сортировка:
     // 1) по total_clicks DESC
     // 2) по unique_users DESC
-    // 3) стабилизатор по created_at ASC (старшие выше при равенстве)
+    // 3) стабилизатор по created_at ASC
     const sorted = enriched.sort((a, b) => {
-      const c1 = (b.total_clicks ?? 0) - (a.total_clicks ?? 0);
+      const c1 = int(b.total_clicks) - int(a.total_clicks);
       if (c1 !== 0) return c1;
-      const c2 = (b.unique_users ?? 0) - (a.unique_users ?? 0);
+      const c2 = int(b.unique_users) - int(a.unique_users);
       if (c2 !== 0) return c2;
       const ta = Date.parse(a?.created_at ?? '') || 0;
       const tb = Date.parse(b?.created_at ?? '') || 0;
@@ -211,7 +215,7 @@
 
   // Инициализация
   async function init() {
-    // Бейдж статуса
+    // Если есть бейдж роли в разметке
     if (els.roleBadge) {
       els.roleBadge.textContent = 'Status | Editor (can edit)';
     }
