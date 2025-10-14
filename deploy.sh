@@ -9,15 +9,21 @@ PYTHON_BIN="/usr/bin/python3"
 PORT="8002"
 SERVICE_NAME="utmtracker"
 ENV_FILE="/etc/utmtracker.env"
-DOMAIN="utm-tracker.qptolov.uz"       # ← дефис, не подчёркивание
-CREATOR_PASS=""                       # QP_CREATOR_PASSWORD
-VIEWER_PASS=""                        # QP_VIEWER_PASSWORD
+
+# Пути к базе и бэкапам (вне репозитория)
+SQLITE_DIR="/var/lib/utmtracker"
+SQLITE_PATH="${SQLITE_DIR}/db.sqlite3"
+BACKUP_DIR="/var/backups/utmtracker"
+
+DOMAIN="utm.qizilpomada.uz"
+CREATOR_PASS=""
+VIEWER_PASS=""
 SECRET_KEY="${DJANGO_SECRET_KEY:-changeme-please}"
-DEBUG_FLAG="${DEBUG:-0}"              # 0|1
+DEBUG_FLAG="${DEBUG:-0}"
 # =======================
 
 echo "[1/8] Подготовка каталогов"
-mkdir -p "$PROJECT_DIR"
+mkdir -p "$PROJECT_DIR" "$SQLITE_DIR" "$BACKUP_DIR"
 cd "$PROJECT_DIR"
 
 echo "[2/8] Код проекта: clone/pull"
@@ -40,11 +46,12 @@ pip install --upgrade pip wheel
 if [ -f requirements.txt ]; then
   pip install -r requirements.txt
 else
-  # базовый набор, чтобы работал WhiteNoise и CORS
   pip install "Django>=4.2" gunicorn whitenoise django-cors-headers
 fi
 
 echo "[4/8] Среда для приложения ($ENV_FILE)"
+# Удаляем старые строки SQLITE_PATH, если были
+sudo sed -i '/^SQLITE_PATH=/d' "$ENV_FILE" 2>/dev/null || true
 cat > "$ENV_FILE" <<EOF
 DJANGO_SETTINGS_MODULE=utmtracker.settings
 DJANGO_SECRET_KEY=${SECRET_KEY}
@@ -52,12 +59,23 @@ DEBUG=${DEBUG_FLAG}
 QP_CREATOR_PASSWORD=${CREATOR_PASS}
 QP_VIEWER_PASSWORD=${VIEWER_PASS}
 PYTHONUNBUFFERED=1
+SQLITE_PATH=${SQLITE_PATH}
 EOF
 chmod 600 "$ENV_FILE"
 
-echo "[5/8] Миграции и статика"
-./venv/bin/python manage.py migrate --noinput || true
-./venv/bin/python manage.py collectstatic --noinput || true
+echo "[5/8] Бэкап и миграции"
+if [ -f "$SQLITE_PATH" ]; then
+  echo "→ Создаём бэкап базы..."
+  sqlite3 "$SQLITE_PATH" ".backup '${BACKUP_DIR}/db-$(date +%F-%H%M).sqlite3'"
+else
+  echo "→ База не найдена, создаём новую..."
+  touch "$SQLITE_PATH"
+  chown www-data:www-data "$SQLITE_PATH"
+fi
+
+# Применяем миграции (без ошибок, если что)
+env $(cat "$ENV_FILE" | xargs) ./venv/bin/python manage.py migrate --noinput || true
+env $(cat "$ENV_FILE" | xargs) ./venv/bin/python manage.py collectstatic --noinput || true
 
 echo "[6/8] Останавливаем старый сервис (если есть)"
 pkill -f "gunicorn .*${SERVICE_NAME}" || true
@@ -95,12 +113,15 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
-echo "[8/8] Запуск сервиса"
+echo "[8/8] Перезапуск и проверка"
 systemctl daemon-reload
 systemctl enable "${SERVICE_NAME}"
 systemctl restart "${SERVICE_NAME}"
 sleep 1
 systemctl status "${SERVICE_NAME}" --no-pager -l || true
 
-echo "Готово. Gunicorn слушает 127.0.0.1:${PORT}"
-echo "Проверка:  ss -tulpn | grep ${PORT}  и  journalctl -u ${SERVICE_NAME} -n 100 -f"
+echo "✅ Готово!"
+echo "Gunicorn слушает 127.0.0.1:${PORT}"
+echo "База данных: ${SQLITE_PATH}"
+echo "Бэкапы: ${BACKUP_DIR}"
+echo "Проверка: ss -tulpn | grep ${PORT}"
