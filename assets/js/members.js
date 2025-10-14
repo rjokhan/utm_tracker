@@ -1,4 +1,3 @@
-// assets/js/members.js
 (() => {
   const $  = (s, r=document) => r.querySelector(s);
   const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
@@ -48,22 +47,29 @@
 
   const safe = (v) => (v ?? '').toString();
 
-  // --- per-member uniques helper (expects GET /api/member-stats/<id>/ -> { unique_users } )
-  async function getMemberUniques(memberId) {
+  /**
+   * Получаем статистику участника
+   * Ожидаемый ответ бекенда: { unique_users: number, total_clicks: number }
+   * Фоллбек: если total_clicks нет, используем переданное ранее поле item.clicks
+   */
+  async function getMemberStats(memberId) {
     try {
       const r = await fetch(`/api/member-stats/${memberId}/`, { credentials: 'same-origin' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
-      return Number(d?.unique_users || 0);
+      return {
+        unique_users: Number(d?.unique_users || 0),
+        total_clicks: Number(d?.total_clicks ?? (d?.clicks ?? 0)),
+      };
     } catch {
-      return 0;
+      return { unique_users: 0, total_clicks: 0 };
     }
   }
 
   // ---------- KPI section ----------
   async function loadTeamStats() {
     try {
-      // Проектные суммарные метрики (ожидается: { total_clicks, unique_users })
+      // Суммарные метрики по всем ссылкам и участникам
       const res = await fetch('/api/project-stats/', { credentials: 'same-origin' });
       if (!res.ok) throw new Error('stats failed');
       const data = await res.json();
@@ -77,13 +83,15 @@
     }
   }
 
-  // Рендер строки участника (с уникальными пользователями)
-  function renderRow(idx, item, uniques = 0) {
+  // Рендер строки участника
+  function renderRow(idx, item) {
     const row = document.createElement('div');
     row.className = 'row';
-    const name = safe(item.name);
-    const activeIn = item.active_projects ?? item.activeIn ?? 0;
-    const clicks   = item.clicks ?? 0;
+
+    const name      = safe(item.name);
+    const activeIn  = item.active_projects ?? item.activeIn ?? 0;
+    const uniques   = Number(item.unique_users || 0);
+    const clicks    = Number(item.total_clicks || item.clicks || 0);
 
     row.innerHTML = `
       <div class="idx">${idx}</div>
@@ -124,15 +132,9 @@
       return;
     }
 
-    // Порядок «старые → новые»
-    const sorted = [...items].sort((a, b) => {
-      const ca = Date.parse(a?.created_at ?? '') || 0;
-      const cb = Date.parse(b?.created_at ?? '') || 0;
-      return ca - cb;
-    });
-
-    els.list.innerHTML = '';
-    if (!sorted.length) {
+    // Если пусто
+    if (!items.length) {
+      els.list.innerHTML = '';
       const empty = document.createElement('div');
       empty.className = 'row empty';
       empty.textContent = 'No members yet';
@@ -141,14 +143,44 @@
       return;
     }
 
-    // Получаем уникальных пользователей для каждого участника (параллельно)
-    const uniquesArr = await Promise.all(sorted.map(m => getMemberUniques(m.id)));
-
-    // Рендерим
-    sorted.forEach((m, i) => {
-      const uniques = uniquesArr[i] ?? 0;
-      els.list.appendChild(renderRow(i + 1, m, uniques));
+    // Подтягиваем индивидуальные метрики (unique + clicks) параллельно
+    const stats = await Promise.all(items.map(m => getMemberStats(m.id)));
+    const enriched = items.map((m, i) => {
+      const st = stats[i] || { unique_users: 0, total_clicks: 0 };
+      const clicksFallback = Number(m.clicks ?? 0);
+      return {
+        ...m,
+        unique_users: Number(st.unique_users || 0),
+        total_clicks: Number(
+          (Number.isFinite(st.total_clicks) ? st.total_clicks : clicksFallback)
+        ),
+      };
     });
+
+    // Сортировка:
+    // 1) по total_clicks DESC
+    // 2) по unique_users DESC
+    // 3) стабилизатор по created_at ASC (старшие выше при равенстве)
+    const sorted = enriched.sort((a, b) => {
+      const c1 = (b.total_clicks ?? 0) - (a.total_clicks ?? 0);
+      if (c1 !== 0) return c1;
+      const c2 = (b.unique_users ?? 0) - (a.unique_users ?? 0);
+      if (c2 !== 0) return c2;
+      const ta = Date.parse(a?.created_at ?? '') || 0;
+      const tb = Date.parse(b?.created_at ?? '') || 0;
+      return ta - tb;
+    });
+
+    // Рендер
+    els.list.innerHTML = '';
+    sorted.forEach((m, i) => {
+      const row = renderRow(i + 1, m);
+      els.list.appendChild(row);
+    });
+
+    // Помечаем аутсайдера (последний после сортировки)
+    const last = els.list.lastElementChild;
+    if (last) last.classList.add('outsider');
 
     if (els.kTeam) els.kTeam.textContent = formatInt(sorted.length);
   }
@@ -177,7 +209,7 @@
     }
   }
 
-  // Инициализация (все — Editor)
+  // Инициализация
   async function init() {
     // Бейдж статуса
     if (els.roleBadge) {

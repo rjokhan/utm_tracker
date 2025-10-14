@@ -122,3 +122,13 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
 @media (max-width:860px){
   .kpi-row{grid-template-columns:1fr}
 }
+
+/* Outsider (последний по кликам) */
+.list .row.outsider{
+  background: #ffe5e9;
+  border: 1px solid #ffb5c0;
+}
+.list .row.outsider .idx{
+  color:#be0036;
+  font-weight:800;
+}
