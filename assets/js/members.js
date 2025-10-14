@@ -20,6 +20,7 @@
 
   let creating = false;
 
+  // ---------- utils ----------
   const toast = (msg, type='ok') => {
     if (!els.corner) return;
     const el = document.createElement('div');
@@ -46,25 +47,76 @@
     els.modalAdd?.classList.remove('show');
   };
 
+  // ---------- API fallbacks ----------
+  async function fetchLinksByOwner(ownerId) {
+    // Пытаемся разными способами — под разные реализации api.js
+    try {
+      if (window.API?.linksByOwnerAll) {
+        const { items = [] } = await API.linksByOwnerAll(ownerId);
+        return items;
+      }
+      if (window.API?.linksByOwner) {
+        // вариант без projectId
+        try {
+          const r = await API.linksByOwner(undefined, ownerId);
+          return r?.items || [];
+        } catch {}
+        // вариант с null projectId
+        try {
+          const r = await API.linksByOwner(null, ownerId);
+          return r?.items || [];
+        } catch {}
+        // вариант только ownerId
+        const r = await API.linksByOwner(ownerId);
+        return r?.items || [];
+      }
+    } catch {}
+    return [];
+  }
+
+  async function fetchLinkUnique(linkId) {
+    try {
+      const r = await fetch(`/api/link-stats/${linkId}/`, { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('bad');
+      const d = await r.json();
+      return int(d?.unique_users ?? d?.unique ?? 0);
+    } catch {
+      return 0;
+    }
+  }
+
   /**
    * Метрики участника:
-   * поддерживаем разные ключи с бэка.
+   * 1) пробуем /api/member-stats/<id>/
+   * 2) если пусто — собираем через список ссылок участника (+ /api/link-stats/<link_id>/)
    */
   async function getMemberStats(memberId) {
+    // 1) основной эндпоинт
     try {
       const r = await fetch(`/api/member-stats/${memberId}/`, { credentials: 'same-origin' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const d = await r.json();
-      const uniques = int(d?.unique_clicks ?? d?.unique_users ?? d?.uniques ?? d?.unique ?? 0);
-      const total   = int(d?.total_clicks ?? d?.clicks ?? 0);
+      if (r.ok) {
+        const d = await r.json();
+        const uniques = int(d?.unique_clicks ?? d?.unique_users ?? d?.uniques ?? d?.unique ?? 0);
+        const total   = int(d?.total_clicks ?? d?.clicks ?? 0);
+        if (uniques || total) return { unique_users: uniques, total_clicks: total };
+      }
+    } catch {}
+
+    // 2) фоллбек через ссылки
+    try {
+      const links = await fetchLinksByOwner(memberId);
+      if (!links.length) return { unique_users: 0, total_clicks: 0 };
+      const total = links.reduce((s, l) => s + int(l?.clicks ?? 0), 0);
+      // Сумма уникальных по ссылкам (может немного завышать, но это лучший клиентский фоллбек)
+      const uniquesArr = await Promise.all(links.map(l => fetchLinkUnique(l.id)));
+      const uniques = uniquesArr.reduce((s, u) => s + int(u), 0);
       return { unique_users: uniques, total_clicks: total };
     } catch {
-      // Фоллбек нулей: дальше доберём из списка
       return { unique_users: 0, total_clicks: 0 };
     }
   }
 
-  // ---------- KPI (суммы по проекту) ----------
+  // ---------- KPI (глобальные суммы) ----------
   async function loadTeamStats() {
     try {
       const res = await fetch('/api/project-stats/', { credentials: 'same-origin' });
@@ -73,15 +125,15 @@
 
       if (els.kClicks)  els.kClicks.textContent  = formatInt(data.total_clicks ?? 0);
       if (els.kUniques) els.kUniques.textContent = formatInt(data.unique_users ?? data.unique_clicks ?? 0);
-      // ВАЖНО: не трогаем kTeam здесь, чтобы не затирать число участников
+      // kTeam НЕ трогаем здесь — его выставит список участников
     } catch (e) {
-      console.warn('Failed to load stats', e);
+      console.warn('Failed to load team KPI', e);
       if (els.kClicks)  els.kClicks.textContent  = '—';
       if (els.kUniques) els.kUniques.textContent = '—';
     }
   }
 
-  // ---------- Рендер строки участника ----------
+  // ---------- рендер одной строки ----------
   function renderRow(idx, item) {
     const row = document.createElement('div');
     row.className = 'row';
@@ -114,7 +166,7 @@
     `;
   }
 
-  // ---------- Загрузка и рендер списка ----------
+  // ---------- загрузка и рендер списка ----------
   async function loadAndRenderMembers() {
     if (!els.list) return;
     renderLoading();
@@ -122,7 +174,6 @@
     let items = [];
     try {
       const res = await API.membersAll();
-      // Поддержка двух форматов: {items: [...]} или [...]
       items = Array.isArray(res) ? res : (res?.items || []);
     } catch (e) {
       console.error(e);
@@ -132,7 +183,6 @@
       return;
     }
 
-    // Пусто
     if (!items.length) {
       els.list.innerHTML = '';
       const empty = document.createElement('div');
@@ -143,22 +193,22 @@
       return;
     }
 
-    // Параллельно тянем индивидуальные метрики
+    // Параллельная подкачка метрик
     const stats = await Promise.all(items.map(m => getMemberStats(m.id ?? m.pk)));
 
-    // Обогащаем элемент фоллбеками, если API метрик не ответил
+    // Сшиваем с фоллбеками значений из списка (если есть)
     const enriched = items.map((m, i) => {
       const st = stats[i] || { unique_users: 0, total_clicks: 0 };
       const clicksFallback  = int(m.total_clicks ?? m.clicks ?? 0);
       const uniquesFallback = int(m.unique_users ?? m.unique_clicks ?? m.uniques ?? 0);
       return {
         ...m,
-        unique_users: int(st.unique_users ?? uniquesFallback),
-        total_clicks: Number.isFinite(st.total_clicks) ? st.total_clicks : clicksFallback,
+        unique_users: int(st.unique_users || uniquesFallback),
+        total_clicks: int((Number.isFinite(st.total_clicks) ? st.total_clicks : clicksFallback)),
       };
     });
 
-    // Сортировка: по кликам, затем по уникальным, затем по дате
+    // Сортировка: клики DESC → уникальные DESC → created_at ASC
     const sorted = enriched.sort((a, b) => {
       const c1 = int(b.total_clicks) - int(a.total_clicks);
       if (c1 !== 0) return c1;
@@ -176,11 +226,11 @@
     const last = els.list.lastElementChild;
     if (last) last.classList.add('outsider');
 
-    // Устанавливаем KPI «total team members»
+    // KPI: общее число участников
     if (els.kTeam) els.kTeam.textContent = formatInt(sorted.length);
   }
 
-  // ---------- Создание участника ----------
+  // ---------- создание участника ----------
   async function createMemberFlow() {
     const nm = safe(els.memberName?.value).trim();
     if (!nm) { toast('Enter name', 'err'); return; }
@@ -193,8 +243,6 @@
       await API.memberCreate(nm);
       close();
       toast('SUCCESSFULLY CREATED', 'ok');
-      // Сначала обновим список (он ставит kTeam),
-      // затем суммарные KPI (не затираем kTeam).
       await loadAndRenderMembers();
       await loadTeamStats();
     } catch (e) {
@@ -206,11 +254,9 @@
     }
   }
 
-  // ---------- Инициализация ----------
+  // ---------- инициализация ----------
   async function init() {
-    if (els.roleBadge) {
-      els.roleBadge.textContent = 'Status | Editor (can edit)';
-    }
+    if (els.roleBadge) els.roleBadge.textContent = 'Status | Editor (can edit)';
 
     els.btnAdd?.addEventListener('click', () => {
       if (els.memberName) els.memberName.value = '';
@@ -227,7 +273,7 @@
       else if (ev.key === 'Escape') { close(); }
     });
 
-    // ВАЖНО: сначала суммарные KPI, потом список (который проставит kTeam)
+    // Важно: сначала глобальные KPI, затем список (он выставит kTeam)
     await loadTeamStats();
     await loadAndRenderMembers();
   }
