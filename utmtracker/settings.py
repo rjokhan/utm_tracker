@@ -10,7 +10,7 @@ DEBUG = os.environ.get('DEBUG', '') == '1'
 
 ALLOWED_HOSTS = [
     '89.39.95.53',
-    'utm-tracker.qptolov.uz',
+    'utm.qizilpomada.uz',
     'localhost',
     '127.0.0.1',
 ]
@@ -22,8 +22,8 @@ if _extra:
 CSRF_TRUSTED_ORIGINS = [
     'http://89.39.95.53',
     'https://89.39.95.53',
-    'http://utm-tracker.qptolov.uz',
-    'https://utm-tracker.qptolov.uz',
+    'utm.qizilpomada.uz',
+    'utm.qizilpomada.uz',
 ]
 
 # === APPS ===
