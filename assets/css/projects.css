@@ -113,39 +113,3 @@ body.modal-open{overflow:hidden}
   .project-dates{grid-area:dates;justify-self:start;font-size:13px;color:#444;margin:0}
   .go-btn,.go{grid-area:arrow;justify-self:end;align-self:center;width:46px}
 }
-/* === Popup tidy & symmetric paddings === */
-.modal{
-  /* одинаковые поля со всех сторон */
-  padding: 24px !important;
-}
-
-/* убираем "ползущие" отступы у внутренних блоков */
-.modal > h3,
-.modal > .modal-title,
-.modal > form,
-.modal .modal-actions{
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-}
-
-/* форма без внешних отступов, всё тянется на ширину модалки */
-.modal form{ margin: 0 !important; width: 100% !important; }
-
-/* сетка дат — колонки равные, без внутренних «подпрыгиваний» */
-.modal .grid-2{
-  grid-template-columns: 1fr 1fr !important;
-  width: 100% !important;
-}
-
-/* кнопки без "самовольных" отступов, аккуратно слева */
-.modal .btn{ margin: 0 !important; }
-.modal .modal-actions{
-  justify-content: flex-start !important;
-  gap: 10px !important;
-}
-
-/* модалка не вылезает за экран даже с системными панелями */
-.modal{
-  max-height: calc(100dvh - 32px) !important;
-  overflow: auto !important;
-}
