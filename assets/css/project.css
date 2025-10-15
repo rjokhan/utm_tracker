@@ -36,7 +36,7 @@
 @media (max-width:900px){ #mRail,#mBurger{ display:block; } }
 
 @media (max-width:768px){
-  :root{ --rail-w:22px; }
+  :root{ --rail-w:30px; }
 
   /* Рейл: слева в закрытом, справа в открытом */
   .m-rail{position:fixed; inset:0 auto 0 0; width:var(--rail-w); background:#ffe0ea;
