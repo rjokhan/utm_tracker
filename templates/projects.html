@@ -17,6 +17,17 @@
 </head>
 <body>
 
+  <!-- Mobile rail + burger -->
+<div class="m-rail" id="mRail">
+  <button class="m-burger" id="mBurger" aria-label="Open menu">
+    <img src="{% static 'img/burger_menu.png' %}" alt="">
+  </button>
+</div>
+
+<!-- Backdrop (если захочешь блюр позади, его можно включить в CSS) -->
+<div class="m-backdrop" id="mBackdrop"></div>
+
+
   <!-- Скрытая форма, чтобы Django выдал csrftoken cookie -->
   <form style="display:none">{% csrf_token %}</form>
 
@@ -104,5 +115,23 @@
   <!-- JS -->
   <script src="{% static 'js/api.js' %}"></script>
   <script src="{% static 'js/projects.js' %}"></script>
+  <script>
+  (function(){
+    const body = document.body;
+    const burger = document.getElementById('mBurger');
+    const backdrop = document.getElementById('mBackdrop');
+    const sidebar = document.querySelector('.sidebar');
+
+    const open   = () => body.classList.add('mnav-open');
+    const close  = () => body.classList.remove('mnav-open');
+    const toggle = () => body.classList.toggle('mnav-open');
+
+    burger?.addEventListener('click', toggle);
+    backdrop?.addEventListener('click', close);
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); });
+    sidebar?.addEventListener('click', (e)=>{ if (e.target.closest('a')) close(); });
+  })();
+</script>
+
 </body>
 </html>
