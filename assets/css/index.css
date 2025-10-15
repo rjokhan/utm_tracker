@@ -187,7 +187,7 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
 
 /* === Mobile: рейл слева в закрытом, справа в открытом; всегда видим === */
 @media (max-width: 768px){
-  :root{ --rail-w: 22px; }        /* толщина розовой полосы */
+  :root{ --rail-w: 30px; }        /* толщина розовой полосы */
 
   /* Рейл (всегда видим и кликабелен поверх меню) */
   .m-rail{
