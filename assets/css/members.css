@@ -291,3 +291,22 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
   .row .name{ font-size:20px }
   .row .meta{ grid-column:1 / -1; font-size:13px }
 }
+/* ===== Responsive KPI row fix ===== */
+.kpi-row,
+.kpi-row.small{
+  /* авто-подбор колонок с минимальной шириной карточки */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* чуть компактнее на очень узких экранах */
+@media (max-width: 420px){
+  .kpi-row,
+  .kpi-row.small{
+    grid-template-columns: 1fr; /* по одной в ряд */
+    gap: 12px;
+  }
+  .kpi{ padding: 14px 16px; }
+  .kpi .kpi-num{ font-size: 30px; }
+}
