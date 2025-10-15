@@ -484,3 +484,19 @@ body.modal-open { overflow: hidden; }  /* блокируем скролл фон
   }
   .go img, .go-btn img{ width: 18px; height: 18px; display: block; }
 }
+
+/* FIX: убираем двойной левый отступ у списка проектов на мобиле */
+@media (max-width: 768px){
+  /* этот остаётся — для всего контента */
+  .content{
+    padding: 24px 16px 24px calc(16px + var(--rail-w, 22px)) !important;
+  }
+  /* а у списка — обычные поля без rail */
+  .projects{
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  /* на всякий случай убираем возможные сдвиги карточек */
+  .projects .project-row,
+  .project-card{ margin-left: 0 !important; }
+}
