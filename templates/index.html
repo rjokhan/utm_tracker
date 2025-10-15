@@ -12,6 +12,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Mobile rail + burger -->
+<div class="m-rail" id="mRail">
+  <button class="m-burger" id="mBurger" aria-label="Open menu">
+    <img src="{% static 'img/burger_menu.png' %}" alt="">
+  </button>
+</div>
+
+<!-- Backdrop (blur) -->
+<div class="m-backdrop" id="mBackdrop"></div>
+
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -90,24 +100,6 @@
   </div>
 </section>
 
-
-    <!-- Leads -->
-    <section class="section">
-      <h3 class="section-title">Leads</h3>
-      <div class="podium" id="podium"></div>
-      <div class="others" id="others">
-        {% for member in others %}
-          <div class="other {% if forloop.last %}last{% endif %}">
-            <div class="col name">
-              <span class="rank">{{ forloop.counter|add:3 }} –</span>
-              <span class="name">{{ member.name }}</span>
-            </div>
-            <div class="col links">{{ member.links }} links</div>
-            <div class="col clicks">{{ member.clicks }} clicks</div>
-          </div>
-        {% endfor %}
-      </div>
-    </section>
   </main>
 
     <!-- JS -->

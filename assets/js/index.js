@@ -90,3 +90,29 @@
     });
   }
 })();
+
+
+ (function(){
+    const body = document.body;
+    const burger = document.getElementById('mBurger');
+    const backdrop = document.getElementById('mBackdrop');
+    const sidebar = document.querySelector('.sidebar');
+
+    function openNav(){ body.classList.add('mnav-open'); }
+    function closeNav(){ body.classList.remove('mnav-open'); }
+    function toggleNav(){ body.classList.toggle('mnav-open'); }
+
+    burger?.addEventListener('click', toggleNav);
+    backdrop?.addEventListener('click', closeNav);
+
+    // Закрытие по ESC
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape') closeNav();
+    });
+
+    // Клик по пунктам меню закрывает дровер
+    sidebar?.addEventListener('click', (e)=>{
+      const a = e.target.closest('a');
+      if(a) closeNav();
+    });
+  })();
