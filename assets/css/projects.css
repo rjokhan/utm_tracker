@@ -412,3 +412,75 @@ body.modal-open { overflow: hidden; }  /* блокируем скролл фон
   .project-card .project-dates{ grid-area: dates; justify-self: start; font-weight: 500; }
   .go, .go-btn{ grid-area: arrow; width: 48px; }
 }
+
+/* ==== MOBILE FIX: project card layout (<=768px) ==== */
+@media (max-width: 768px){
+
+  /* список компактнее и с учётом левого рейла */
+  .projects{
+    padding-left: calc(16px + var(--rail-w, 22px)) !important;
+    padding-right: 16px !important;
+    gap: 12px !important;
+  }
+
+  /* карточка = 2 строки: title / dates  + стрелка справа на обе строки */
+  .projects .project-row,
+  .project-card{
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;   /* текст | стрелка */
+    grid-template-areas:
+      "title arrow"
+      "dates arrow";
+    align-items: center;
+    row-gap: 6px; column-gap: 12px;
+    padding: 14px 14px 14px 64px !important;      /* больше отступ слева под «таблетку» */
+    border-radius: 16px !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,.08) !important;
+  }
+
+  /* левая «таблетка» — тоньше и не заезжает на текст */
+  .projects .project-row::before,
+  .project-card::before{
+    left: 16px !important;
+    top: 10px !important;
+    bottom: 10px !important;
+    width: 12px !important;
+    border-radius: 8px !important;
+    background: linear-gradient(180deg,#ff6ea1 0%, #f86491 100%) !important;
+    box-shadow: inset 0 0 0 2px #ffc0d4 !important;
+  }
+
+  /* заголовок — первая строка */
+  .projects .project-row .project-name,
+  .project-card .project-name{
+    grid-area: title;
+    font-size: 20px !important;
+    line-height: 1.15 !important;
+    margin: 0 !important;
+    word-break: break-word;
+  }
+
+  /* даты — под заголовком, слева */
+  .projects .project-row .project-dates,
+  .project-card .project-dates{
+    grid-area: dates;
+    justify-self: start;
+    font-size: 13px !important;
+    color: #444 !important;
+    margin: 0 !important;
+  }
+
+  /* стрелка — идеальный круг, справа, центр по высоте */
+  .go, .go-btn{
+    grid-area: arrow;
+    justify-self: end; align-self: center;
+    width: 46px !important;
+    aspect-ratio: 1 / 1 !important;   /* круг */
+    border-radius: 50% !important;
+    display: grid; place-items: center;
+    background: var(--pinkActive, #f86491) !important;
+    border: 0; outline: 0;
+    box-shadow: 0 10px 18px rgba(0,0,0,.12);
+  }
+  .go img, .go-btn img{ width: 18px; height: 18px; display: block; }
+}
