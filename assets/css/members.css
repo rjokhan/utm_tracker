@@ -246,7 +246,7 @@ body{margin:0;background:#fff;color:var(--txt);font-family:Inter,system-ui,Arial
 }
 
 @media (max-width:768px){
-  :root{ --rail-w:22px; }
+  :root{ --rail-w:30px; }
 
   /* Рейл слева, при открытии уезжает вправо */
   .m-rail{
